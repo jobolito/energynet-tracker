@@ -1,0 +1,72 @@
+---
+/** Project drawer over the map. Content for every project is pre-rendered into <template> elements. */
+import type { ProjectDTO } from '../lib/data';
+import { getCollection, render } from 'astro:content';
+interface Props { projects: ProjectDTO[] }
+const { projects } = Astro.props;
+const entries = await getCollection('projects');
+const rendered = await Promise.all(projects.map(async (p) => ({ p, Content: (await render(entries.find((e) => e.id === p.id)!)).Content })));
+const rn = new Intl.DisplayNames(['en'], { type: 'region' });
+---
+<div class="drawer" id="drawer" hidden role="dialog" aria-label="Project details">
+  <div class="hd" id="drawer-hd"></div>
+  <div class="body" id="drawer-body"></div>
+  <div class="ft" id="drawer-ft"></div>
+</div>
+{rendered.map(({ p, Content }) => (
+  <div class="tpl" id={`tpl-${p.id}`} hidden>
+    <div class="hd">
+      <button class="x" type="button" aria-label="Close">×</button>
+      <div class="eyebrow">{p.locations[0]?.name}{p.locations.length > 1 ? ` +${p.locations.length - 1}` : ''} · {rn.of(p.country)} · {p.scaleLabel}</div>
+      <h2>{p.title}</h2>
+      <div class="chips">
+        <span class="badge stage" style={`background:${p.stageColor}`}>{p.stageLabel}</span>
+        <span class="badge">{p.typeLabel}</span>
+        {p.started && <span class="badge">Started {p.started}</span>}
+        {p.theory && <span class="badge">theory</span>}
+        {!p.verified && <span class="badge" title="Not yet verified by an editor">unverified</span>}
+        {p.confidential && <span class="badge" title="Only the city is disclosed">confidential</span>}
+      </div>
+    </div>
+    <div class="body">
+      <p><strong>{p.summary}</strong></p>
+      <Content />
+      {p.tags.length > 0 && <p class="chips">{p.tags.map((t) => <a class="tag" href={`/?tag=${t}`}>{t}</a>)}</p>}
+      {p.confidential ? <><h4>Parties</h4><p class="muted">Not disclosed. The parties have asked for the project to be listed by city only.</p></> : p.parties.length > 0 && <><h4>Parties</h4>{p.parties.map((x) => <div class="party"><a href={x.url}>{x.name}</a><span>{x.role}</span></div>)}</>}
+      {p.links.length > 0 && <><h4>Sources</h4>{p.links.map((l) => <div class="party"><a href={l.url} rel="noopener">{l.label}</a></div>)}</>}
+    </div>
+    <div class="ft">
+      <a class="btn primary small" href={p.url}>Open project page</a>
+      <button class="btn small" type="button" data-copy={`https://energynet-tracker.org${p.url}`}>Copy link</button>
+    </div>
+  </div>
+))}
+<script>
+  const drawer = document.getElementById('drawer')!;
+  const params = new URLSearchParams(location.search);
+  let openId: string | null = null;
+
+  function open(id: string, focus = true) {
+    const tpl = document.getElementById(`tpl-${id}`);
+    if (!tpl) return;
+    drawer.replaceChildren(...[...tpl.children].map((c) => c.cloneNode(true)));
+    drawer.hidden = false; openId = id;
+    drawer.querySelector('.body')!.scrollTop = 0;
+    drawer.querySelector<HTMLButtonElement>('.x')!.addEventListener('click', close);
+    drawer.querySelector<HTMLButtonElement>('[data-copy]')!.addEventListener('click', async (e) => {
+      const b = e.currentTarget as HTMLButtonElement; await navigator.clipboard.writeText(b.dataset.copy!);
+      (window as any).track?.('copy', { what: 'link', project: id }); const t = b.textContent; b.textContent = 'Copied'; setTimeout(() => (b.textContent = t), 1200);
+    });
+    const u = new URL(location.href); u.searchParams.set('p', id); history.replaceState(null, '', u);
+    if (focus) document.dispatchEvent(new CustomEvent('en:focus', { detail: { id } }));
+  }
+  function close() {
+    drawer.hidden = true; openId = null;
+    const u = new URL(location.href); u.searchParams.delete('p'); history.replaceState(null, '', u);
+    document.dispatchEvent(new CustomEvent('en:close'));
+  }
+  document.addEventListener('en:open', (e) => open((e as CustomEvent).detail.id));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && openId) close(); });
+  const initial = params.get('p');
+  if (initial) open(initial, false);
+</script>

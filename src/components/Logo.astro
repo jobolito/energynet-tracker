@@ -1,0 +1,12 @@
+---
+/** Network mark: a hub node with three linked nodes, accent gradient. */
+interface Props { size?: number }
+const { size = 24 } = Astro.props;
+const id = 'lg' + Math.random().toString(36).slice(2, 7);
+---
+<svg class="logo" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+  <defs><radialGradient id={id} cx="35%" cy="35%" r="75%"><stop offset="0" stop-color="#fff77a"/><stop offset=".55" stop-color="#22e06a"/><stop offset="1" stop-color="#0aa863"/></radialGradient></defs>
+  <g stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".55"><path d="M12 12L4.5 6.5M12 12l7.5-5.5M12 12v8"/></g>
+  <circle cx="4.5" cy="6.5" r="2.4" fill="currentColor"/><circle cx="19.5" cy="6.5" r="2.4" fill="currentColor"/><circle cx="12" cy="20" r="2.4" fill="currentColor"/>
+  <circle cx="12" cy="12" r="4" fill={`url(#${id})`} stroke="#fff" stroke-width="1.2"/>
+</svg>

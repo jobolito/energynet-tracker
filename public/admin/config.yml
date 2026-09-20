@@ -63,6 +63,7 @@ collections:
       - { name: added, label: Added, widget: datetime, format: "YYYY-MM-DD", date_format: "YYYY-MM-DD", time_format: false }
       - { name: updated, label: Updated, widget: datetime, format: "YYYY-MM-DD", date_format: "YYYY-MM-DD", time_format: false, required: false }
       - { name: verified, label: Verified by an editor, widget: boolean, default: false }
+      - { name: confidential, label: Confidential (list by city only, hide parties), widget: boolean, default: false, required: false }
       - { name: body, label: Description, widget: markdown }
 
   - name: organisations

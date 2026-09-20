@@ -31,6 +31,8 @@ const projects = defineCollection({
     added: z.coerce.date(),
     updated: z.coerce.date().optional(),
     verified: z.boolean().default(false),
+    /** Secretive project: only the city is known or may be shown. No parties, no exact site. */
+    confidential: z.boolean().default(false),
   }).refine((p) => p.locations.length > 0 || p.parties.length > 0, { message: 'A project needs at least one location or one party (theory work is pinned at party HQs).' }),
 });
 

@@ -7,13 +7,13 @@ const countries = [...new Set(projects.map((p) => p.country))].sort();
 const rn = new Intl.DisplayNames(['en'], { type: 'region' });
 ---
 <form class="filters" id="filters" role="search" aria-label="Filter projects">
-  <input type="search" name="q" placeholder="Search projects, places, organisations" />
-  <select name="stage" aria-label="Stage"><option value="">All stages</option>{Object.entries(STAGES).map(([k, s]) => <option value={k}>{s.label}</option>)}</select>
-  <select name="type" aria-label="Type"><option value="">All types</option>{Object.entries(TYPES).map(([k, v]) => <option value={k}>{v}</option>)}</select>
-  <select name="scale" aria-label="Scale"><option value="">All scales</option>{Object.entries(SCALES).map(([k, v]) => <option value={k}>{v}</option>)}</select>
-  <select name="country" aria-label="Country"><option value="">All countries</option>{countries.map((c) => <option value={c}>{rn.of(c)}</option>)}</select>
-  <select name="tag" aria-label="Tag"><option value="">All tags</option>{tags.map((t) => <option value={t}>#{t}</option>)}</select>
-  <button type="button" class="btn small" id="clear">Clear</button>
+  <input class="pill" type="search" name="q" placeholder="Search projects, places, organisations" />
+  <select class="pill" name="stage" aria-label="Stage"><option value="">All stages</option>{Object.entries(STAGES).map(([k, s]) => <option value={k}>{s.label}</option>)}</select>
+  <select class="pill" name="type" aria-label="Type"><option value="">All types</option>{Object.entries(TYPES).map(([k, v]) => <option value={k}>{v}</option>)}</select>
+  <select class="pill" name="scale" aria-label="Scale"><option value="">All scales</option>{Object.entries(SCALES).map(([k, v]) => <option value={k}>{v}</option>)}</select>
+  <select class="pill" name="country" aria-label="Country"><option value="">All countries</option>{countries.map((c) => <option value={c}>{rn.of(c)}</option>)}</select>
+  <select class="pill" name="tag" aria-label="Tag"><option value="">All tags</option>{tags.map((t) => <option value={t}>#{t}</option>)}</select>
+  <button type="button" class="pill" id="clear">Clear</button>
   <span class="count" id="count"></span>
 </form>
 <script>
@@ -37,10 +37,15 @@ const rn = new Intl.DisplayNames(['en'], { type: 'region' });
     }
     count.textContent = `${n} of ${cards.length} projects`;
   }
+  let t: ReturnType<typeof setTimeout>;
   function run(dispatch = true) {
     const f = current();
     applyList(f);
-    if (dispatch) document.dispatchEvent(new CustomEvent('en:filter', { detail: f }));
+    if (dispatch) {
+      document.dispatchEvent(new CustomEvent('en:filter', { detail: f }));
+      clearTimeout(t);
+      t = setTimeout(() => (window as any).track?.('filter', { ...f, q: f.q ? '[text]' : undefined, results: cards.filter((c) => !c.hidden).length }), 800);
+    }
   }
   form.addEventListener('input', () => run());
   form.addEventListener('submit', (e) => { e.preventDefault(); run(); });

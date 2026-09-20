@@ -19,7 +19,8 @@ const repo = 'jobolito/energynet-tracker';
       <label>Country <span class="hint">Two-letter code, e.g. SE</span><input name="country" required pattern="[A-Za-z]{2}" maxlength="2" /></label>
     </div>
     <label>Location(s) <span class="hint">One per line: place name, latitude, longitude. Leave blank for papers/standards; they are pinned at the organisations.</span><textarea name="locations" placeholder="Brunnshög, Lund, 55.7187, 13.2338"></textarea></label>
-    <label>Organisations and roles <span class="hint">One per line: organisation name, role, website</span><textarea name="parties" required placeholder="LKF, Owner, https://www.lkf.se"></textarea></label>
+    <label style="display:flex;gap:.6rem;align-items:center;font-weight:500"><input type="checkbox" name="confidential" value="yes" style="width:auto" /> Confidential project: list by city only, do not publish the parties</label>
+    <label>Organisations and roles <span class="hint">One per line: organisation name, role, website. Still needed for the editors if the project is confidential; they will not be published.</span><textarea name="parties" required placeholder="LKF, Owner, https://www.lkf.se"></textarea></label>
     <label>Links <span class="hint">One per line: label, URL. At least one public source.</span><textarea name="links" required placeholder="Press release, https://..."></textarea></label>
     <label>Description <span class="hint">A few paragraphs in plain language. Markdown is fine.</span><textarea name="body" required style="min-height:160px"></textarea></label>
     <div class="row">
@@ -46,14 +47,17 @@ const repo = 'jobolito/energynet-tracker';
           const r = await fetch(relay, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
           const j = await r.json();
           if (!r.ok) throw new Error(j.error ?? r.statusText);
+          (window as any).track?.('contribute_submit', { via: 'relay' });
           say(`Thanks. Your submission is now <a href="${j.url}" rel="noopener">pull request #${j.number}</a>, waiting for an editor.`, true);
           form.reset();
         } catch (err) { say('Submission failed: ' + (err as Error).message + '. You can also open an issue on GitHub.'); }
       } else {
-        // No relay configured: hand off to a prefilled GitHub issue.
-        const body = Object.entries(data).filter(([k]) => k !== 'website').map(([k, v]) => `### ${k}\n${v || '_none_'}`).join('\n\n');
+        // No relay configured: hand off to a prefilled GitHub issue. Issues are public, so never include contact details or confidential parties.
+        const secret = data.confidential === 'yes';
+        const body = Object.entries(data).filter(([k]) => k !== 'website' && k !== 'contact' && !(secret && k === 'parties')).map(([k, v]) => `### ${k}\n${v || '_none_'}`).join('\n\n');
         const url = `https://github.com/${form.dataset.repo}/issues/new?labels=project-submission&title=${encodeURIComponent('Project: ' + data.title)}&body=${encodeURIComponent(body)}`;
-        say('Opening a prefilled GitHub issue in a new tab. A GitHub account is needed; the editors will pick it up from there.');
+        (window as any).track?.('contribute_submit', { via: 'github-issue' });
+        say('Opening a prefilled GitHub issue in a new tab. A GitHub account is needed; the editors will pick it up from there. Issues are public, so your contact details' + (secret ? ' and the parties' : '') + ' were left out; the editors will reach you through GitHub.');
         window.open(url, '_blank', 'noopener');
       }
     });

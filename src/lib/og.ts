@@ -28,14 +28,14 @@ export async function renderOg(p: ProjectDTO | null): Promise<Uint8Array<ArrayBu
   const W = 1200, H = 630;
   const title = p?.title ?? 'EnergyNet Tracker';
   const sub = p?.summary ?? 'Projects building on EnergyNet and the Energy Protocol, from theory to deployment.';
-  const color = p?.stageColor ?? '#1fa971';
+  const color = p?.stageColor ?? '#22e06a';
   const dots = (p?.locations ?? []).map((l) => proj(l.lat, l.lng, 560, 280));
   const map = el('div', { style: { position: 'absolute', right: 40, top: 40, width: 560, height: 280, borderRadius: 16, background: '#e9efe9', border: '1px solid #d6dfd6', display: 'flex', overflow: 'hidden' } },
     el('img', { src: 'data:image/svg+xml;utf8,' + encodeURIComponent(WORLD_SVG), width: 560, height: 280, style: { position: 'absolute', left: 0, top: 0, opacity: 0.9 } }),
     ...dots.map((d) => el('div', { style: { position: 'absolute', left: d.x - 9, top: d.y - 9, width: 18, height: 18, borderRadius: 9, background: p?.theory ? 'transparent' : color, border: `4px solid ${p?.theory ? color : '#fff'}`, boxShadow: '0 1px 4px rgba(0,0,0,.35)' } })),
   );
-  const tree = el('div', { style: { width: W, height: H, display: 'flex', flexDirection: 'column', background: '#fbfbf9', fontFamily: 'Inter', color: '#1a1d21', padding: 56, position: 'relative' } },
-    el('div', { style: { display: 'flex', alignItems: 'center', gap: 12, fontSize: 26, fontWeight: 700, color: '#0d6b46' } }, el('div', { style: { width: 14, height: 14, borderRadius: 7, background: '#1fa971' } }), 'EnergyNet Tracker'),
+  const tree = el('div', { style: { width: W, height: H, display: 'flex', flexDirection: 'column', background: '#fbfbf9', fontFamily: 'Inter', color: '#101418', padding: 56, position: 'relative' } },
+    el('div', { style: { display: 'flex', alignItems: 'center', gap: 12, fontSize: 26, fontWeight: 700, color: '#086b41' } }, el('img', { src: 'data:image/svg+xml;utf8,' + encodeURIComponent(LOGO_SVG), width: 34, height: 34 }), 'EnergyNet Tracker'),
     p ? map : null,
     el('div', { style: { display: 'flex', flexDirection: 'column', marginTop: 'auto', maxWidth: p ? 1080 : 1000 } },
       p ? el('div', { style: { display: 'flex', gap: 10, marginBottom: 18 } },
@@ -51,6 +51,8 @@ export async function renderOg(p: ProjectDTO | null): Promise<Uint8Array<ArrayBu
   const svg = await satori(tree as any, { width: W, height: H, fonts: await loadFonts() });
   return new Resvg(svg, { fitTo: { mode: 'width', value: W } }).render().asPng() as Uint8Array<ArrayBuffer>;
 }
+
+const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g stroke="#101418" stroke-width="1.8" stroke-linecap="round" opacity=".6"><path d="M12 12L4.5 6.5M12 12l7.5-5.5M12 12v8"/></g><circle cx="4.5" cy="6.5" r="2.6" fill="#101418"/><circle cx="19.5" cy="6.5" r="2.6" fill="#101418"/><circle cx="12" cy="20" r="2.6" fill="#101418"/><circle cx="12" cy="12" r="4.3" fill="#22e06a" stroke="#fff" stroke-width="1.2"/></svg>`;
 
 // Very coarse world outline (equirectangular, 560x280) so the thumbnail reads as a map.
 const WORLD_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 280"><g fill="#c9d6c9"><path d="M45 60l60-18 55 4 30 20-10 30-25 25-15 40-20 30-15-30 5-40-30-20-25-20z"/><path d="M150 155l35 10 15 30-10 45-20 25-15-35-10-40z"/><path d="M255 55l60-12 40 6 15 25-25 20-30 5-15 25-20-10-15 15-20-20 5-30z"/><path d="M270 120l35 5 20 30-5 45-25 25-20-30-10-40z"/><path d="M345 45l110-10 60 15 25 30-40 20-30 30-40 5-30 20-25-15-30-30-15-30z"/><path d="M430 190l40-5 25 20-15 25-40 5-15-25z"/></g></svg>`;

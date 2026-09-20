@@ -61,6 +61,7 @@ function buildProjectFile(d) {
   });
   const tags = String(d.tags ?? '').split(',').map((t) => slugify(t)).filter(Boolean);
   const today = new Date().toISOString().slice(0, 10);
+  const confidential = d.confidential === 'yes' || d.confidential === true;
 
   const fm = [
     '---',
@@ -72,15 +73,16 @@ function buildProjectFile(d) {
     'locations:',
     ...locations.flatMap((l) => [`  - name: ${yamlStr(l.name)}`, `    lat: ${l.lat}`, `    lng: ${l.lng}`]),
     'parties:',
-    ...parties.flatMap((p) => [`  - org: ${p.slug}`, `    role: ${yamlStr(p.role)}`]),
+    ...(confidential ? [] : parties.flatMap((p) => [`  - org: ${p.slug}`, `    role: ${yamlStr(p.role)}`])),
     'links:',
     ...links.flatMap((l) => [`  - label: ${yamlStr(l.label)}`, `    url: ${yamlStr(l.url)}`]),
     ...(d.started ? [`started: ${yamlStr(d.started)}`] : []),
     `added: ${today}`,
     'verified: false',
+    ...(confidential ? ['confidential: true'] : []),
     '---',
   ];
-  return { slug: slugify(d.title), content: fm.join('\n') + '\n' + String(d.body).trim() + '\n', parties };
+  return { slug: slugify(d.title), content: fm.join('\n') + '\n' + String(d.body).trim() + '\n', parties: confidential ? [] : parties, confidential, partiesNote: confidential ? parties.map((p) => `${p.name} (${p.role}) ${p.website}`).join('; ') : '' };
 }
 
 async function gh(env, path, init = {}) {
@@ -93,7 +95,7 @@ async function gh(env, path, init = {}) {
 }
 
 async function submit(d, env) {
-  const { slug, content, parties } = buildProjectFile(d);
+  const { slug, content, parties, confidential, partiesNote } = buildProjectFile(d);
   if (!slug) throw fail('Title produces an empty slug');
   const repo = env.REPO;
   const main = await gh(env, `/repos/${repo}/git/ref/heads/main`);
@@ -114,9 +116,18 @@ async function submit(d, env) {
     }
   }
 
+  // Contact details and, for confidential projects, the parties go to a PRIVATE repo issue. The public PR never carries them.
+  let privateRef = 'no private repo configured; contact details were dropped';
+  if (env.PRIVATE_REPO) {
+    const priv = await gh(env, `/repos/${env.PRIVATE_REPO}/issues`, { method: 'POST', body: JSON.stringify({
+      title: `Intake: ${d.title}${confidential ? ' (confidential)' : ''}`,
+      body: [`Public PR: ${repo}#(see below)`, '', `**Contact:** ${d.contact}`, '', ...(confidential ? ['**Confidential project. Parties, editors only, never publish:**', '', partiesNote] : [])].join('\n'),
+    }) });
+    privateRef = `editor details in ${env.PRIVATE_REPO}#${priv.number}`;
+  }
   const body = [
-    `Web submission from the contribute form.`, '',
-    `**Contact (not published):** ${d.contact}`, '',
+    `Web submission from the contribute form (${privateRef}).`, '',
+    ...(confidential ? ['**Confidential project:** listed by city only, parties intentionally omitted from this file.', ''] : []),
     missing.length ? `New organisation stubs need kind, city and HQ coordinates: ${missing.map((m) => `\`${m}\``).join(', ')}` : 'All parties already existed as organisations.', '',
     '## Editor checklist', '- [ ] In scope (EnergyNet / Energy Protocol lineage)', '- [ ] Sources checked', '- [ ] Locations verified', '- [ ] Organisation stubs completed', '- [ ] `verified: true` if confirmed',
   ].join('\n');

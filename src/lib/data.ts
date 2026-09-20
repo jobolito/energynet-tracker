@@ -21,6 +21,7 @@ export interface ProjectDTO {
   links: { label: string; url: string }[];
   started?: string; ended?: string;
   added: string; updated?: string; verified: boolean;
+  confidential: boolean;
 }
 
 export async function loadProjects(): Promise<ProjectDTO[]> {
@@ -61,6 +62,7 @@ export async function loadProjects(): Promise<ProjectDTO[]> {
         added: d.added.toISOString().slice(0, 10),
         updated: d.updated?.toISOString().slice(0, 10),
         verified: d.verified,
+        confidential: d.confidential,
       };
     })
     .sort((a, b) => a.title.localeCompare(b.title));

@@ -1,0 +1,100 @@
+---
+/**
+ * Left pane: headline, projects currently in the map view, latest news, footer.
+ * Desktop: docked beside the map, collapsible to a tab.
+ * Mobile: bottom sheet that collapses to a handle so the map takes over. State persists in localStorage.
+ */
+import type { ProjectDTO } from '../lib/data';
+import type { CollectionEntry } from 'astro:content';
+interface Props { projects: ProjectDTO[]; news: CollectionEntry<'news'>[] }
+const { projects, news } = Astro.props;
+const rn = new Intl.DisplayNames(['en'], { type: 'region' });
+---
+<aside class="pane" id="pane">
+  <button class="pane-handle" id="pane-handle" type="button" aria-label="Expand or collapse the project list"><span id="pane-handle-text">Projects in view</span></button>
+  <div class="pane-tools">
+    <button class="tool" id="pane-collapse" type="button" title="Collapse the pane">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+    </button>
+  </div>
+  <div class="pane-head">
+    <h1><span class="grad">EnergyNet</span> momentum, from academia to buildings.</h1>
+    <p>Every project building on EnergyNet and the Energy Protocol. Open data, community maintained.</p>
+  </div>
+  <div class="pane-section"><span class="eyebrow">Projects in view</span><span class="count" id="pane-count"></span></div>
+  <ul class="plist" id="plist">
+    {projects.map((p) => (
+      <li class="pcard" data-id={p.id} tabindex="0" role="button" aria-label={`Open ${p.title}`}>
+        <span class="t">{p.title}</span>
+        <span class="badge stage" style={`background:${p.stageColor}`}>{p.stageLabel}</span>
+        <span class="s">{p.summary}</span>
+        <span class="m">{p.locations[0]?.name.split(',').slice(-1)[0].trim()}, {rn.of(p.country)}{p.locations.length > 1 ? ` +${p.locations.length - 1}` : ''}{p.confidential ? ' · parties undisclosed' : p.parties.length ? ` · ${p.parties.slice(0, 3).map((x) => x.name.split(' (')[0]).join(', ')}` : ''}</span>
+      </li>
+    ))}
+  </ul>
+  <div class="pane-empty" id="pane-empty" hidden>No projects in this part of the map. <a href="#" id="pane-reset">Show all</a></div>
+  <div class="pane-news">
+    <div class="pane-section"><span class="eyebrow">Latest news</span><a class="small" href="/news">All news →</a></div>
+    {news.map((n) => <a class="nrow" href={n.data.url} rel="noopener">{n.data.title}<span class="src">{n.data.source} · {n.data.date.toISOString().slice(0, 10)}</span></a>)}
+  </div>
+  <footer class="pane-footer">
+    <p>EnergyNet Tracker is a community project aligned with the EnergyNet engineering taskforce.</p>
+    <p>Data <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> · Code MIT · <a href="https://github.com/jobolito/energynet-tracker">GitHub</a></p>
+    <p><a href="/data/projects.json">JSON</a> · <a href="/data/projects.csv">CSV</a> · <a href="/data/projects.geojson">GeoJSON</a> · <a href="/about#embed">Embed</a></p>
+  </footer>
+</aside>
+<button class="pane-tab" id="pane-tab" type="button" title="Show the project list" hidden>
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+  <span id="pane-tab-text">Projects</span>
+</button>
+<script>
+  const app = document.querySelector<HTMLElement>('.app')!;
+  const cards = [...document.querySelectorAll<HTMLElement>('.pcard')];
+  const count = document.getElementById('pane-count')!;
+  const empty = document.getElementById('pane-empty')!;
+  const handleText = document.getElementById('pane-handle-text')!;
+  const tabText = document.getElementById('pane-tab-text')!;
+  const collapse = document.getElementById('pane-collapse') as HTMLButtonElement;
+  const tab = document.getElementById('pane-tab') as HTMLButtonElement;
+
+  // --- pane state ---
+  type State = { collapsed: boolean };
+  let state: State = { collapsed: false };
+  try { const s = localStorage.getItem('en:pane'); if (s) state = { collapsed: !!JSON.parse(s).collapsed }; } catch {}
+  function render() {
+    app.classList.toggle('pane-collapsed', state.collapsed);
+    tab.hidden = !state.collapsed;
+    try { localStorage.setItem('en:pane', JSON.stringify(state)); } catch {}
+    document.dispatchEvent(new CustomEvent('en:pane', { detail: state }));
+  }
+  const toggleCollapse = () => { state.collapsed = !state.collapsed; render(); (window as any).track?.('pane', { action: state.collapsed ? 'collapse' : 'expand' }); };
+  collapse.addEventListener('click', toggleCollapse);
+  tab.addEventListener('click', toggleCollapse);
+  document.getElementById('pane-handle')!.addEventListener('click', toggleCollapse);
+  render();
+
+  // --- list follows the map ---
+  document.addEventListener('en:visible', (e) => {
+    const { ids } = (e as CustomEvent).detail as { ids: string[] };
+    const set = new Set(ids);
+    let n = 0;
+    for (const c of cards) { const ok = set.has(c.dataset.id!); c.hidden = !ok; if (ok) n++; }
+    count.textContent = `${n} of ${cards.length}`;
+    empty.hidden = n > 0;
+    handleText.textContent = `${n} project${n === 1 ? '' : 's'} in view`;
+    tabText.textContent = `${n} project${n === 1 ? '' : 's'}`;
+  });
+  const open = (id: string) => { document.dispatchEvent(new CustomEvent('en:open', { detail: { id } })); (window as any).track?.('pane_open', { project: id }); };
+  for (const c of cards) {
+    c.addEventListener('click', () => open(c.dataset.id!));
+    c.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(c.dataset.id!); } });
+  }
+  document.getElementById('pane-reset')!.addEventListener('click', (e) => { e.preventDefault(); document.dispatchEvent(new CustomEvent('en:refit')); });
+  document.addEventListener('en:open', (e) => {
+    const id = (e as CustomEvent).detail.id;
+    for (const c of cards) c.classList.toggle('active', c.dataset.id === id);
+    // On phones the drawer takes the screen; collapse the sheet so the map is visible when it closes.
+    if (window.innerWidth <= 860 && !state.collapsed) { state.collapsed = true; render(); }
+  });
+  document.addEventListener('en:close', () => { for (const c of cards) c.classList.remove('active'); });
+</script>

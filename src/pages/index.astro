@@ -1,15 +1,23 @@
 ---
 import Base from '../layouts/Base.astro';
 import Map from '../components/Map.astro';
-import Filters from '../components/Filters.astro';
-import ProjectCard from '../components/ProjectCard.astro';
+import MapFilters from '../components/MapFilters.astro';
+import Pane from '../components/Pane.astro';
+import Drawer from '../components/Drawer.astro';
 import { loadProjects } from '../lib/data';
+import { getCollection } from 'astro:content';
 const projects = await loadProjects();
+const news = (await getCollection('news')).sort((a, b) => +b.data.date - +a.data.date).slice(0, 3);
 const orgCount = new Set(projects.flatMap((p) => p.parties.map((x) => x.id))).size;
 ---
-<Base title="EnergyNet Tracker" description={`${projects.length} EnergyNet and Energy Protocol projects across ${orgCount} organisations, from theory to deployment.`}>
-  <p class="muted" style="margin:0 0 1rem">Projects building on <a href="/about">EnergyNet and the Energy Protocol</a>, from papers and standards to live deployments. <a href="/contribute">Add yours.</a></p>
-  <Map projects={projects} />
-  <Filters projects={projects} />
-  <div class="grid">{projects.map((p) => <ProjectCard p={p} />)}</div>
+<Base title="EnergyNet Tracker" description={`${projects.length} EnergyNet and Energy Protocol projects across ${orgCount} organisations, from theory to deployment.`} app={true}>
+  <div class="app">
+    <Pane projects={projects} news={news} />
+    <div class="mapwrap">
+      <Map projects={projects} mode="app">
+        <MapFilters projects={projects} />
+        <Drawer projects={projects} />
+      </Map>
+    </div>
+  </div>
 </Base>

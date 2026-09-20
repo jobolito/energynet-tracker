@@ -1,55 +1,77 @@
 ---
 /**
- * Leaflet map of all project pins. Reads filters from the URL (?stage=&type=&scale=&tag=&q=)
- * and the viewport from the hash (#lat,lng,zoom). Dispatches 'en:filter' events so the
- * project list on the same page stays in sync.
+ * MapLibre map on the OpenFreeMap Positron basemap.
+ * mode "app":   home page. Reads filters from ?stage=&type=&scale=&tag=&q=&country=, viewport from #lat,lng,zoom.
+ *               Emits 'en:visible' (ids of projects matching filters AND inside the viewport) and 'en:open' (pin click).
+ *               Listens to 'en:filter' (from MapFilters) and 'en:focus' (from Drawer / pane).
+ * mode "embed": same, but pins open a popup that links out, and nothing is written to the URL.
+ * mode "mini":  small static map on project / organisation pages.
  */
 import type { ProjectDTO } from '../lib/data';
 import { STAGES } from '../lib/taxonomy';
-interface Props { projects: ProjectDTO[]; embed?: boolean; height?: string }
-const { projects, embed = false } = Astro.props;
+interface Props { projects: ProjectDTO[]; mode?: 'app' | 'embed' | 'mini' }
+const { projects, mode = 'mini' } = Astro.props;
 const pins = projects.flatMap((p) =>
-  p.locations.map((l) => ({ id: p.id, title: p.title, url: p.url, summary: p.summary, stage: p.stage, color: p.stageColor, type: p.type, scale: p.scale, tags: p.tags, country: p.country, theory: p.theory, name: l.name, lat: l.lat, lng: l.lng, kind: l.kind, text: `${p.title} ${p.summary} ${l.name} ${p.parties.map((x) => x.name).join(' ')}`.toLowerCase() })),
+  p.locations.map((l) => ({ id: p.id, confidential: p.confidential, title: p.title, url: p.url, summary: p.summary, stage: p.stage, color: p.stageColor, type: p.type, scale: p.scale, tags: p.tags, country: p.country, theory: p.theory, name: l.name, lat: l.lat, lng: l.lng, kind: l.kind, text: `${p.title} ${p.summary} ${l.name} ${p.parties.map((x) => x.name).join(' ')}`.toLowerCase() })),
 );
 ---
-<div class="map-shell">
-  <div class="map" id="map" data-embed={embed ? '1' : '0'}></div>
-  <div class="legend" aria-label="Legend">
-    {Object.entries(STAGES).map(([k, s]) => <span><i style={`background:${s.color}`}></i>{s.label}</span>)}
-    <span><i class="hollow"></i>Theory (pinned at HQ)</span>
-  </div>
+<div class={`map-shell mode-${mode}`}>
+  <div class="map" id="map" data-mode={mode}></div>
+  {mode !== 'mini' && (
+    <div class="legend" aria-label="Legend">
+      {Object.entries(STAGES).map(([, s]) => <span><i style={`background:${s.color}`}></i>{s.label}</span>)}
+      <span><i class="hollow"></i>Theory, pinned at organisation</span>
+    </div>
+  )}
+  {mode === 'embed' && <a class="embed-link" href="/" target="_blank" rel="noopener">EnergyNet Tracker ↗</a>}
+  <slot />
 </div>
 <script is:inline id="pins-data" type="application/json" set:html={JSON.stringify(pins)}></script>
 <script>
-  import 'leaflet/dist/leaflet.css';
-  import L from 'leaflet';
-  type Pin = { id: string; title: string; url: string; summary: string; stage: string; color: string; type: string; scale: string; tags: string[]; country: string; theory: boolean; name: string; lat: number; lng: number; kind: string; text: string };
+  import 'maplibre-gl/dist/maplibre-gl.css';
+  import * as maplibregl from 'maplibre-gl';
+  type Pin = { id: string; confidential: boolean; title: string; url: string; summary: string; stage: string; color: string; type: string; scale: string; tags: string[]; country: string; theory: boolean; name: string; lat: number; lng: number; kind: string; text: string };
+  type Filters = Record<string, string>;
+  const FILTER_KEYS = ['stage', 'type', 'scale', 'tag', 'q', 'country'];
 
   const pins: Pin[] = JSON.parse(document.getElementById('pins-data')!.textContent!);
   const el = document.getElementById('map')!;
-  const embed = el.dataset.embed === '1';
+  const mode = el.dataset.mode as 'app' | 'embed' | 'mini';
   const params = new URLSearchParams(location.search);
+  const track = (n: string, p?: object) => (window as any).track?.(n, p);
 
-  const map = L.map(el, { scrollWheelZoom: !embed, worldCopyJump: true });
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    maxZoom: 19,
-  }).addTo(map);
+  const map = new maplibregl.Map({
+    container: el,
+    style: 'https://tiles.openfreemap.org/styles/positron',
+    center: [10, 30], zoom: 1.5,
+    attributionControl: { compact: true },
+    scrollZoom: mode !== 'embed',
+    cooperativeGestures: mode === 'embed',
+  });
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), mode === 'mini' ? 'top-left' : 'bottom-right');
 
-  const layer = L.layerGroup().addTo(map);
-  const markers: { pin: Pin; m: L.Marker }[] = [];
+  const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+  const markers: { pin: Pin; m: maplibregl.Marker; el: HTMLElement }[] = [];
   for (const pin of pins) {
     const hollow = pin.theory || pin.kind === 'hq';
-    const icon = L.divIcon({ className: '', html: `<div class="en-pin${hollow ? ' hollow' : ''}" style="background:${pin.color};--pin:${pin.color}"></div>`, iconSize: [16, 16], iconAnchor: [8, 8] });
-    const m = L.marker([pin.lat, pin.lng], { icon, title: pin.title });
-    const target = embed ? ' target="_blank" rel="noopener"' : '';
-    m.bindPopup(`<h4><a href="${pin.url}"${target}>${esc(pin.title)}</a></h4><p>${esc(pin.summary)}</p><p class="small muted">${esc(pin.name)}${hollow ? ' · theory work, pinned at organisation' : ''}</p>`);
-    markers.push({ pin, m });
+    const d = document.createElement('div');
+    d.className = 'pin' + (hollow ? ' hollow' : '') + (pin.confidential ? ' soft' : '');
+    d.style.background = pin.color; d.style.setProperty('--pin', pin.color);
+    d.title = pin.title; d.setAttribute('role', 'button'); d.tabIndex = 0;
+    const m = new maplibregl.Marker({ element: d }).setLngLat([pin.lng, pin.lat]).addTo(map);
+    if (mode === 'app') {
+      const open = () => { track('pin_open', { project: pin.id, embed: false }); document.dispatchEvent(new CustomEvent('en:open', { detail: { id: pin.id } })); };
+      d.addEventListener('click', (e) => { e.stopPropagation(); open(); });
+      d.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+    } else {
+      const target = mode === 'embed' ? ' target="_blank" rel="noopener"' : '';
+      m.setPopup(new maplibregl.Popup({ offset: 12, closeButton: false }).setHTML(`<h4><a href="${pin.url}"${target}>${esc(pin.title)}</a></h4><p>${esc(pin.summary)}</p><p class="muted">${esc(pin.name)}${hollow ? ' · theory work, pinned at organisation' : ''}</p>`));
+      m.getPopup().on('open', () => track('pin_open', { project: pin.id, embed: mode === 'embed' }));
+    }
+    markers.push({ pin, m, el: d });
   }
 
-  function esc(s: string) { return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!); }
-
-  function matches(pin: Pin, f: Record<string, string>) {
+  function matches(pin: Pin, f: Filters) {
     if (f.stage && pin.stage !== f.stage) return false;
     if (f.type && pin.type !== f.type) return false;
     if (f.scale && pin.scale !== f.scale) return false;
@@ -58,54 +80,71 @@ const pins = projects.flatMap((p) =>
     if (f.q && !pin.text.includes(f.q.toLowerCase())) return false;
     return true;
   }
+  function readFilters(): Filters { const f: Filters = {}; for (const k of FILTER_KEYS) { const v = params.get(k); if (v) f[k] = v; } return f; }
+  let filters = readFilters();
 
-  function apply(f: Record<string, string>, fit: boolean) {
-    layer.clearLayers();
-    const shown: L.LatLngExpression[] = [];
-    for (const { pin, m } of markers) if (matches(pin, f)) { m.addTo(layer); shown.push([pin.lat, pin.lng]); }
-    if (fit) {
-      if (shown.length) map.fitBounds(L.latLngBounds(shown).pad(0.4), { maxZoom: 11 });
-      else map.setView([30, 10], 2);
-    }
+  function fitTo(list: { lat: number; lng: number }[], maxZoom = 10) {
+    if (!list.length) { map.easeTo({ center: [10, 30], zoom: 1.5 }); return; }
+    const b = new maplibregl.LngLatBounds();
+    for (const p of list) b.extend([p.lng, p.lat]);
+    map.fitBounds(b, { padding: padding(), maxZoom, duration: 600 });
+  }
+  function padding() {
+    const drawerOpen = mode === 'app' && !document.querySelector('.drawer[hidden]') && document.querySelector('.drawer');
+    const wide = window.innerWidth > 860;
+    const app = document.querySelector('.app');
+    const sheet = !wide && !app?.classList.contains('pane-collapsed');
+    return { top: 70, bottom: sheet ? Math.round(el.clientHeight * 0.44) + 20 : 60, left: 40, right: drawerOpen && wide ? 420 : 40 };
+  }
+
+  /** Apply filters to pins; optionally refit. Then announce what is visible in the viewport. */
+  function apply(fit: boolean) {
+    const shown: Pin[] = [];
+    for (const { pin, el } of markers) { const ok = matches(pin, filters); el.style.display = ok ? '' : 'none'; if (ok) shown.push(pin); }
+    if (fit) fitTo(shown);
+    announce();
     return shown.length;
   }
-
-  function readFilters() {
-    const f: Record<string, string> = {};
-    for (const k of ['stage', 'type', 'scale', 'tag', 'q', 'country']) { const v = params.get(k); if (v) f[k] = v; }
-    return f;
+  function announce() {
+    if (mode !== 'app') return;
+    const b = map.getBounds();
+    const ids = new Set<string>();
+    for (const { pin } of markers) if (matches(pin, filters) && b.contains([pin.lng, pin.lat])) ids.add(pin.id);
+    document.dispatchEvent(new CustomEvent('en:visible', { detail: { ids: [...ids], filters } }));
   }
-
-  // Initial view: hash wins over fit-to-data.
-  const hash = location.hash.slice(1).split(',').map(Number);
-  const hasHash = hash.length === 3 && hash.every((n) => !Number.isNaN(n));
-  map.setView([30, 10], 2);
-  requestAnimationFrame(() => {
-    map.invalidateSize();
-    apply(readFilters(), !hasHash);
-    if (hasHash) map.setView([hash[0], hash[1]], hash[2]);
-  });
-
-  map.on('moveend', () => {
-    if (embed) return;
+  function writeUrl() {
+    if (mode !== 'app') return;
+    const cur = new URLSearchParams(location.search);
+    for (const k of FILTER_KEYS) { if (filters[k]) cur.set(k, filters[k]); else cur.delete(k); }
+    cur.delete('focus');
     const c = map.getCenter();
-    const h = `#${c.lat.toFixed(4)},${c.lng.toFixed(4)},${map.getZoom()}`;
-    history.replaceState(null, '', location.pathname + location.search + h);
-  });
-
-  // Filters UI (if present on page) updates map, list and URL.
-  document.addEventListener('en:filter', (e) => {
-    const f = (e as CustomEvent).detail as Record<string, string>;
-    for (const k of ['stage', 'type', 'scale', 'tag', 'q', 'country']) { if (f[k]) params.set(k, f[k]); else params.delete(k); }
-    const qs = params.toString();
-    history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
-    apply(f, true);
-  });
-
-  // Focus a single project when ?focus=<id>
-  const focus = params.get('focus');
-  if (focus) {
-    const own = markers.filter((x) => x.pin.id === focus).map((x) => [x.pin.lat, x.pin.lng] as L.LatLngExpression);
-    if (own.length) map.fitBounds(L.latLngBounds(own).pad(0.5), { maxZoom: 13 });
+    const qs = cur.toString();
+    history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + `#${c.lat.toFixed(4)},${c.lng.toFixed(4)},${map.getZoom().toFixed(2)}`);
   }
+
+  map.on('load', () => {
+    const hash = location.hash.slice(1).split(',').map(Number);
+    const hasHash = mode === 'app' && hash.length === 3 && hash.every((n) => !Number.isNaN(n));
+    const focus = params.get('focus') || params.get('p');
+    const own = focus ? pins.filter((p) => p.id === focus) : [];
+    if (hasHash) { map.jumpTo({ center: [hash[1], hash[0]], zoom: hash[2] }); apply(false); }
+    else if (own.length) { apply(false); fitTo(own, 12); }
+    else apply(true);
+  });
+  map.on('moveend', () => { writeUrl(); announce(); });
+
+  document.addEventListener('en:filter', (e) => {
+    filters = (e as CustomEvent).detail as Filters;
+    const n = apply(true);
+    writeUrl();
+    track('filter', { ...filters, q: filters.q ? '[text]' : undefined, results: n });
+  });
+  document.addEventListener('en:focus', (e) => {
+    const { id } = (e as CustomEvent).detail as { id: string };
+    const own = pins.filter((p) => p.id === id);
+    if (own.length) fitTo(own, 12);
+  });
+  document.addEventListener('en:refit', () => apply(true));
+  document.addEventListener('en:pane', () => { requestAnimationFrame(() => { map.resize(); announce(); }); });
+  (window as any).__enMap = map;
 </script>

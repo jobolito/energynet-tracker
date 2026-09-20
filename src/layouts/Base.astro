@@ -1,25 +1,29 @@
 ---
 import '../styles/global.css';
-interface Props { title: string; description?: string; ogImage?: string; bare?: boolean; canonical?: string }
-const { title, description = 'Tracking EnergyNet and Energy Protocol projects around the world, from theory to deployment.', ogImage, bare = false } = Astro.props;
+import Analytics from '../components/Analytics.astro';
+import Logo from '../components/Logo.astro';
+interface Props { title: string; description?: string; ogImage?: string; bare?: boolean; app?: boolean; canonical?: string }
+const { title, description = 'Tracking EnergyNet and Energy Protocol projects around the world, from theory to deployment.', ogImage, bare = false, app = false } = Astro.props;
 const site = Astro.site?.toString().replace(/\/$/, '') ?? '';
 const canonical = Astro.props.canonical ?? site + Astro.url.pathname;
 const og = ogImage ?? `${site}/og/default.png`;
 const path = Astro.url.pathname;
-const nav = [
-  ['/', 'Map'], ['/projects', 'Projects'], ['/organisations', 'Organisations'], ['/news', 'News'], ['/contribute', 'Contribute'], ['/about', 'About'],
-];
+const nav = [['/organisations', 'Organisations'], ['/news', 'News'], ['/about', 'About']];
 const current = (href: string) => (href === '/' ? path === '/' : path.startsWith(href));
 ---
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>{title === 'EnergyNet Tracker' ? title : `${title} · EnergyNet Tracker`}</title>
   <meta name="description" content={description} />
+  <meta name="theme-color" content="#ffffff" />
   <link rel="canonical" href={canonical} />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="EnergyNet Tracker" />
   <meta property="og:title" content={title} />
@@ -30,26 +34,28 @@ const current = (href: string) => (href === '/' ? path === '/' : path.startsWith
   <meta name="twitter:image" content={og} />
   <link rel="alternate" type="application/json" href="/data/projects.json" />
   <link rel="alternate" type="application/rss+xml" title="EnergyNet Tracker news" href="/news.xml" />
+  <script is:inline>window.track=function(n,p){try{window.posthog&&window.posthog.capture(n,p||{})}catch(e){}}</script>
+  <Analytics />
   <slot name="head" />
 </head>
 <body>
 {!bare && (
   <header class="site-header">
-    <div class="wrap">
-      <a class="brand" href="/">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="2.2"/><circle cx="19" cy="6" r="2.2"/><circle cx="19" cy="18" r="2.2"/><path d="M7 11l10-4M7 13l10 4"/></svg>
-        EnergyNet Tracker
-      </a>
+    <div class="inner">
+      <a class="brand" href="/"><Logo /> EnergyNet Tracker</a>
+      <nav class="seg" aria-label="View">
+        <a href="/" aria-current={path === '/' ? 'page' : undefined}>Map</a>
+        <a href="/projects" aria-current={path.startsWith('/projects') ? 'page' : undefined}>List</a>
+      </nav>
       <nav class="nav" aria-label="Main">
         {nav.map(([href, label]) => <a href={href} aria-current={current(href) ? 'page' : undefined}>{label}</a>)}
+        <a class="cta" href="/contribute">Add a project</a>
       </nav>
     </div>
   </header>
 )}
-<main class={bare ? 'map-embed' : 'wrap'}>
-  <slot />
-</main>
-{!bare && (
+{app ? <slot /> : <main class={bare ? '' : 'content'}><div class={bare ? '' : 'wrap'}><slot /></div></main>}
+{!bare && !app && (
   <footer class="site-footer">
     <div class="wrap">
       <span>EnergyNet Tracker is a community project aligned with the EnergyNet engineering taskforce.</span>
