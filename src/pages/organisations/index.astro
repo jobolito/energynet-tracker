@@ -1,0 +1,15 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+import { loadProjects } from '../../lib/data';
+import { ORG_KINDS } from '../../lib/taxonomy';
+const orgs = (await getCollection('organisations')).sort((a, b) => a.data.name.localeCompare(b.data.name));
+const projects = await loadProjects();
+const count = (id: string) => projects.filter((p) => p.parties.some((x) => x.id === id)).length;
+---
+<Base title="Organisations" description="Companies, municipalities, universities and grid operators involved in EnergyNet projects.">
+  <h1>Organisations</h1>
+  <div class="grid">
+    {orgs.map((o) => <article class="card"><h3><a href={`/organisations/${o.id}`}>{o.data.name}</a></h3><div class="meta"><span class="badge">{ORG_KINDS[o.data.kind]}</span><span class="badge">{o.data.city}, {o.data.country}</span></div><p>{count(o.id)} project{count(o.id) === 1 ? '' : 's'}</p></article>)}
+  </div>
+</Base>

@@ -1,0 +1,107 @@
+---
+/**
+ * Leaflet map of all project pins. Reads filters from the URL (?stage=&type=&scale=&tag=&q=)
+ * and the viewport from the hash (#lat,lng,zoom). Dispatches 'en:filter' events so the
+ * project list on the same page stays in sync.
+ */
+import type { ProjectDTO } from '../lib/data';
+import { STAGES } from '../lib/taxonomy';
+interface Props { projects: ProjectDTO[]; embed?: boolean; height?: string }
+const { projects, embed = false } = Astro.props;
+const pins = projects.flatMap((p) =>
+  p.locations.map((l) => ({ id: p.id, title: p.title, url: p.url, summary: p.summary, stage: p.stage, color: p.stageColor, type: p.type, scale: p.scale, tags: p.tags, country: p.country, theory: p.theory, name: l.name, lat: l.lat, lng: l.lng, kind: l.kind, text: `${p.title} ${p.summary} ${l.name} ${p.parties.map((x) => x.name).join(' ')}`.toLowerCase() })),
+);
+---
+<div class="map-shell">
+  <div class="map" id="map" data-embed={embed ? '1' : '0'}></div>
+  <div class="legend" aria-label="Legend">
+    {Object.entries(STAGES).map(([k, s]) => <span><i style={`background:${s.color}`}></i>{s.label}</span>)}
+    <span><i class="hollow"></i>Theory (pinned at HQ)</span>
+  </div>
+</div>
+<script is:inline id="pins-data" type="application/json" set:html={JSON.stringify(pins)}></script>
+<script>
+  import 'leaflet/dist/leaflet.css';
+  import L from 'leaflet';
+  type Pin = { id: string; title: string; url: string; summary: string; stage: string; color: string; type: string; scale: string; tags: string[]; country: string; theory: boolean; name: string; lat: number; lng: number; kind: string; text: string };
+
+  const pins: Pin[] = JSON.parse(document.getElementById('pins-data')!.textContent!);
+  const el = document.getElementById('map')!;
+  const embed = el.dataset.embed === '1';
+  const params = new URLSearchParams(location.search);
+
+  const map = L.map(el, { scrollWheelZoom: !embed, worldCopyJump: true });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    maxZoom: 19,
+  }).addTo(map);
+
+  const layer = L.layerGroup().addTo(map);
+  const markers: { pin: Pin; m: L.Marker }[] = [];
+  for (const pin of pins) {
+    const hollow = pin.theory || pin.kind === 'hq';
+    const icon = L.divIcon({ className: '', html: `<div class="en-pin${hollow ? ' hollow' : ''}" style="background:${pin.color};--pin:${pin.color}"></div>`, iconSize: [16, 16], iconAnchor: [8, 8] });
+    const m = L.marker([pin.lat, pin.lng], { icon, title: pin.title });
+    const target = embed ? ' target="_blank" rel="noopener"' : '';
+    m.bindPopup(`<h4><a href="${pin.url}"${target}>${esc(pin.title)}</a></h4><p>${esc(pin.summary)}</p><p class="small muted">${esc(pin.name)}${hollow ? ' · theory work, pinned at organisation' : ''}</p>`);
+    markers.push({ pin, m });
+  }
+
+  function esc(s: string) { return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!); }
+
+  function matches(pin: Pin, f: Record<string, string>) {
+    if (f.stage && pin.stage !== f.stage) return false;
+    if (f.type && pin.type !== f.type) return false;
+    if (f.scale && pin.scale !== f.scale) return false;
+    if (f.country && pin.country !== f.country) return false;
+    if (f.tag && !pin.tags.includes(f.tag)) return false;
+    if (f.q && !pin.text.includes(f.q.toLowerCase())) return false;
+    return true;
+  }
+
+  function apply(f: Record<string, string>, fit: boolean) {
+    layer.clearLayers();
+    const shown: L.LatLngExpression[] = [];
+    for (const { pin, m } of markers) if (matches(pin, f)) { m.addTo(layer); shown.push([pin.lat, pin.lng]); }
+    if (fit) {
+      if (shown.length) map.fitBounds(L.latLngBounds(shown).pad(0.4), { maxZoom: 11 });
+      else map.setView([30, 10], 2);
+    }
+    return shown.length;
+  }
+
+  function readFilters() {
+    const f: Record<string, string> = {};
+    for (const k of ['stage', 'type', 'scale', 'tag', 'q', 'country']) { const v = params.get(k); if (v) f[k] = v; }
+    return f;
+  }
+
+  // Initial view: hash wins over fit-to-data.
+  const hash = location.hash.slice(1).split(',').map(Number);
+  const hasHash = hash.length === 3 && hash.every((n) => !Number.isNaN(n));
+  apply(readFilters(), !hasHash);
+  if (hasHash) map.setView([hash[0], hash[1]], hash[2]);
+
+  map.on('moveend', () => {
+    if (embed) return;
+    const c = map.getCenter();
+    const h = `#${c.lat.toFixed(4)},${c.lng.toFixed(4)},${map.getZoom()}`;
+    history.replaceState(null, '', location.pathname + location.search + h);
+  });
+
+  // Filters UI (if present on page) updates map, list and URL.
+  document.addEventListener('en:filter', (e) => {
+    const f = (e as CustomEvent).detail as Record<string, string>;
+    for (const k of ['stage', 'type', 'scale', 'tag', 'q', 'country']) { if (f[k]) params.set(k, f[k]); else params.delete(k); }
+    const qs = params.toString();
+    history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+    apply(f, true);
+  });
+
+  // Focus a single project when ?focus=<id>
+  const focus = params.get('focus');
+  if (focus) {
+    const own = markers.filter((x) => x.pin.id === focus).map((x) => [x.pin.lat, x.pin.lng] as L.LatLngExpression);
+    if (own.length) map.fitBounds(L.latLngBounds(own).pad(0.5), { maxZoom: 13 });
+  }
+</script>

@@ -1,0 +1,17 @@
+---
+import type { ProjectDTO } from '../lib/data';
+import StageBadge from './StageBadge.astro';
+const { p } = Astro.props as { p: ProjectDTO };
+const place = p.locations[0]?.name ?? '';
+---
+<article class="card project-card" data-id={p.id} data-stage={p.stage} data-type={p.type} data-scale={p.scale} data-tags={p.tags.join(' ')} data-country={p.country} data-text={`${p.title} ${p.summary} ${place} ${p.parties.map(x => x.name).join(' ')}`.toLowerCase()}>
+  <h3><a href={p.url}>{p.title}</a></h3>
+  <div class="meta">
+    <StageBadge stage={p.stage as any} />
+    <span class="badge">{p.typeLabel}</span>
+    <span class="badge">{p.scaleLabel}</span>
+    {p.theory && <span class="badge" title="Theory / standards work, pinned at the lead organisation">theory</span>}
+  </div>
+  <p>{p.summary}</p>
+  <div class="meta small muted">{place}{p.locations.length > 1 ? ` +${p.locations.length - 1} more` : ''}</div>
+</article>

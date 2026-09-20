@@ -1,0 +1,22 @@
+---
+import Base from '../../layouts/Base.astro';
+import Map from '../../components/Map.astro';
+import ProjectCard from '../../components/ProjectCard.astro';
+import { getCollection, render } from 'astro:content';
+import { projectsForOrg } from '../../lib/data';
+import { ORG_KINDS } from '../../lib/taxonomy';
+export async function getStaticPaths() {
+  return (await getCollection('organisations')).map((entry) => ({ params: { id: entry.id }, props: { entry } }));
+}
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+const projects = await projectsForOrg(entry.id);
+const o = entry.data;
+---
+<Base title={o.name} description={`${o.name}: ${projects.length} EnergyNet project${projects.length === 1 ? '' : 's'}.`}>
+  <h1>{o.name}</h1>
+  <div class="meta" style="display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:1rem"><span class="badge">{ORG_KINDS[o.kind]}</span><span class="badge">{o.city}, {o.country}</span>{o.website && <a class="badge" href={o.website} rel="noopener">Website</a>}</div>
+  <div class="prose"><Content /></div>
+  <h2 style="margin-top:1.5rem">Projects</h2>
+  {projects.length ? <><Map projects={projects} /><div class="grid" style="margin-top:1rem">{projects.map((p) => <ProjectCard p={p} />)}</div></> : <p class="muted">No projects yet.</p>}
+</Base>

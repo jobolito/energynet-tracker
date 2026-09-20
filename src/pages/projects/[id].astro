@@ -1,0 +1,69 @@
+---
+import Base from '../../layouts/Base.astro';
+import Map from '../../components/Map.astro';
+import StageBadge from '../../components/StageBadge.astro';
+import { loadProjects } from '../../lib/data';
+import { getCollection, render } from 'astro:content';
+
+export async function getStaticPaths() {
+  const entries = await getCollection('projects');
+  const dtos = await loadProjects();
+  return entries.map((entry) => ({ params: { id: entry.id }, props: { entry, p: dtos.find((d) => d.id === entry.id)! } }));
+}
+const { entry, p } = Astro.props;
+const { Content } = await render(entry);
+const news = (await getCollection('news')).filter((n) => n.data.projects.some((r) => r.id === p.id)).sort((a, b) => +b.data.date - +a.data.date);
+const site = Astro.site!.toString().replace(/\/$/, '');
+const url = `${site}${p.url}`;
+const rn = new Intl.DisplayNames(['en'], { type: 'region' });
+const accessed = new Date().toISOString().slice(0, 10);
+const cite = `EnergyNet Tracker. "${p.title}." energynet-tracker.org, ${p.updated ?? p.added}. ${url} (accessed ${accessed}).`;
+const bibtex = `@misc{energynet-tracker-${p.id},\n  title = {${p.title}},\n  author = {{EnergyNet Tracker contributors}},\n  year = {${(p.updated ?? p.added).slice(0, 4)}},\n  howpublished = {\\url{${url}}},\n  note = {Accessed ${accessed}}\n}`;
+const embed = `<iframe src="${site}/embed?focus=${p.id}" width="100%" height="400" style="border:1px solid #ddd;border-radius:8px" loading="lazy" title="${p.title} on EnergyNet Tracker"></iframe>`;
+---
+<Base title={p.title} description={p.summary} ogImage={`${site}/og/${p.id}.png`}>
+  <div class="project-head">
+    <div>
+      <h1>{p.title}</h1>
+      <div class="meta" style="display:flex;flex-wrap:wrap;gap:.35rem;margin:.5rem 0 1rem">
+        <StageBadge stage={p.stage as any} />
+        <span class="badge">{p.typeLabel}</span>
+        <span class="badge">{p.scaleLabel}</span>
+        <span class="badge">{rn.of(p.country)}</span>
+        {p.theory && <span class="badge">theory</span>}
+        {!p.verified && <span class="badge" title="Not yet verified by an editor">unverified</span>}
+      </div>
+      <p style="font-size:1.05rem">{p.summary}</p>
+      <div class="prose"><Content /></div>
+      {p.tags.length > 0 && <p class="meta" style="display:flex;gap:.6rem;flex-wrap:wrap">{p.tags.map((t) => <a class="tag" href={`/projects?tag=${t}`}>{t}</a>)}</p>}
+    </div>
+    <aside>
+      <Map projects={[p]} />
+      <h3 style="margin-top:1.25rem">Parties</h3>
+      {p.parties.length ? (
+        <ul class="parties">{p.parties.map((x) => <li><a href={x.url}>{x.name}</a><span>{x.role}</span></li>)}</ul>
+      ) : <p class="muted small">No parties listed yet.</p>}
+      <h3 style="margin-top:1.25rem">Details</h3>
+      <dl class="kv">
+        {p.locations.map((l) => <><dt>Location</dt><dd>{l.name} <span class="muted small">({l.lat.toFixed(3)}, {l.lng.toFixed(3)})</span></dd></>)}
+        {p.started && <><dt>Started</dt><dd>{p.started}</dd></>}
+        {p.ended && <><dt>Ended</dt><dd>{p.ended}</dd></>}
+        <dt>Added</dt><dd>{p.added}</dd>
+        {p.updated && <><dt>Updated</dt><dd>{p.updated}</dd></>}
+      </dl>
+      {p.links.length > 0 && <><h3 style="margin-top:1.25rem">Links</h3><ul style="padding-left:1.1rem;margin:0">{p.links.map((l) => <li><a href={l.url} rel="noopener">{l.label}</a></li>)}</ul></>}
+    </aside>
+  </div>
+  <hr />
+  <div class="share">
+    <a class="btn small" href={`/?focus=${p.id}`}>Show on main map</a>
+    <a class="btn small" href={`https://github.com/jobolito/energynet-tracker/edit/main/src/content/projects/${p.id}.md`} rel="noopener">Suggest an edit</a>
+    <button class="btn small" type="button" data-copy={url}>Copy link</button>
+    <button class="btn small" type="button" data-copy={embed}>Copy embed code</button>
+  </div>
+  <details class="cite"><summary>Cite this project</summary><pre>{cite}</pre><pre>{bibtex}</pre></details>
+  {news.length > 0 && <><h2 style="margin-top:2rem">In the news</h2><ul class="newslist">{news.map((n) => <li><a href={n.data.url} rel="noopener">{n.data.title}</a><div class="src">{n.data.source} · {n.data.date.toISOString().slice(0, 10)}</div></li>)}</ul></>}
+  <script>
+    for (const b of document.querySelectorAll<HTMLButtonElement>('[data-copy]')) b.addEventListener('click', async () => { await navigator.clipboard.writeText(b.dataset.copy!); const t = b.textContent; b.textContent = 'Copied'; setTimeout(() => (b.textContent = t), 1200); });
+  </script>
+</Base>

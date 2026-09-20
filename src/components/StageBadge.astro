@@ -1,0 +1,6 @@
+---
+import { STAGES, type Stage } from '../lib/taxonomy';
+const { stage } = Astro.props as { stage: Stage };
+const s = STAGES[stage];
+---
+<span class="badge stage" style={`background:${s.color}`}>{s.label}</span>

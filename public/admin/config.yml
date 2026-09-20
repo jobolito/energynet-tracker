@@ -1,0 +1,99 @@
+# Decap CMS configuration. Editors log in with GitHub; write access to the repo is required.
+# The GitHub OAuth handshake goes through the relay worker (see worker/). Set base_url to its URL.
+backend:
+  name: github
+  repo: jobolito/energynet-tracker
+  branch: main
+  base_url: https://energynet-tracker-relay.jobolito.workers.dev
+  auth_endpoint: oauth/auth
+  commit_messages:
+    create: "content: add {{collection}} “{{slug}}”"
+    update: "content: update {{collection}} “{{slug}}”"
+    delete: "content: remove {{collection}} “{{slug}}”"
+publish_mode: editorial_workflow
+media_folder: public/logos
+public_folder: /logos
+site_url: https://energynet-tracker.org
+display_url: https://energynet-tracker.org
+logo_url: https://energynet-tracker.org/favicon.svg
+
+collections:
+  - name: projects
+    label: Projects
+    folder: src/content/projects
+    create: true
+    extension: md
+    slug: "{{slug}}"
+    summary: "{{title}} · {{stage}}"
+    sortable_fields: [title, stage, added]
+    fields:
+      - { name: title, label: Title, widget: string }
+      - { name: summary, label: Summary, widget: text, hint: "One line, max 280 characters. Shown on cards, popups and link previews.", pattern: ["^.{1,280}$", "Max 280 characters"] }
+      - { name: stage, label: Stage, widget: select, options: [{label: Concept, value: concept}, {label: Research, value: research}, {label: Specification, value: specification}, {label: Pilot, value: pilot}, {label: Operational, value: operational}, {label: Discontinued, value: discontinued}] }
+      - { name: type, label: Type, widget: select, options: [{label: Paper, value: paper}, {label: "Standard / protocol", value: standard}, {label: Software, value: software}, {label: Hardware, value: hardware}, {label: Deployment, value: deployment}, {label: Policy, value: policy}] }
+      - { name: scale, label: Scale, widget: select, options: [device, building, neighbourhood, city, region, national, global] }
+      - { name: tags, label: Tags, widget: list, required: false, hint: "Lowercase, hyphenated, e.g. energy-protocol, dc, solar" }
+      - { name: country, label: Country (ISO 2-letter), widget: string, pattern: ["^[A-Z]{2}$", "Two uppercase letters, e.g. SE"] }
+      - name: locations
+        label: Locations
+        widget: list
+        required: false
+        hint: "One pin per location. Leave empty for papers/standards; they are pinned at the parties' HQs."
+        fields:
+          - { name: name, label: Place name, widget: string }
+          - { name: lat, label: Latitude, widget: number, value_type: float, step: 0.0001 }
+          - { name: lng, label: Longitude, widget: number, value_type: float, step: 0.0001 }
+          - { name: kind, label: Kind, widget: select, options: [site, hq], default: site }
+      - name: parties
+        label: Parties
+        widget: list
+        required: false
+        fields:
+          - { name: org, label: Organisation, widget: relation, collection: organisations, search_fields: [name], value_field: "{{slug}}", display_fields: [name] }
+          - { name: role, label: Role, widget: string }
+      - name: links
+        label: Links
+        widget: list
+        required: false
+        fields:
+          - { name: label, label: Label, widget: string }
+          - { name: url, label: URL, widget: string }
+      - { name: started, label: Started, widget: string, required: false, hint: "YYYY or YYYY-MM" }
+      - { name: ended, label: Ended, widget: string, required: false }
+      - { name: added, label: Added, widget: datetime, format: "YYYY-MM-DD", date_format: "YYYY-MM-DD", time_format: false }
+      - { name: updated, label: Updated, widget: datetime, format: "YYYY-MM-DD", date_format: "YYYY-MM-DD", time_format: false, required: false }
+      - { name: verified, label: Verified by an editor, widget: boolean, default: false }
+      - { name: body, label: Description, widget: markdown }
+
+  - name: organisations
+    label: Organisations
+    folder: src/content/organisations
+    create: true
+    extension: md
+    slug: "{{slug}}"
+    fields:
+      - { name: name, label: Name, widget: string }
+      - { name: kind, label: Kind, widget: select, options: [{label: Housing company, value: housing-company}, {label: Municipality, value: municipality}, {label: University, value: university}, {label: Technology provider, value: technology-provider}, {label: Grid operator (DSO), value: dso}, {label: Property developer, value: developer}, {label: Investor, value: investor}, {label: Research institute, value: research-institute}, {label: Other, value: other}] }
+      - { name: website, label: Website, widget: string, required: false }
+      - { name: country, label: Country (ISO 2-letter), widget: string, pattern: ["^[A-Z]{2}$", "Two uppercase letters"] }
+      - { name: city, label: City, widget: string }
+      - { name: lat, label: HQ latitude, widget: number, value_type: float, step: 0.0001 }
+      - { name: lng, label: HQ longitude, widget: number, value_type: float, step: 0.0001 }
+      - { name: logo, label: Logo, widget: image, required: false }
+      - { name: body, label: Description, widget: markdown }
+
+  - name: news
+    label: News
+    folder: src/content/news
+    create: true
+    extension: md
+    slug: "{{year}}-{{month}}-{{slug}}"
+    sortable_fields: [date]
+    fields:
+      - { name: title, label: Headline (as published), widget: string }
+      - { name: url, label: URL, widget: string }
+      - { name: source, label: Source, widget: string, hint: "Publication or organisation, e.g. LKF, arXiv, Viable Cities" }
+      - { name: date, label: Date, widget: datetime, format: "YYYY-MM-DD", date_format: "YYYY-MM-DD", time_format: false }
+      - { name: projects, label: Related projects, widget: relation, collection: projects, multiple: true, required: false, search_fields: [title], value_field: "{{slug}}", display_fields: [title] }
+      - { name: tags, label: Tags, widget: list, required: false }
+      - { name: body, label: Editor note, widget: markdown, hint: "One or two sentences on why this matters. Aggregation, not original reporting." }

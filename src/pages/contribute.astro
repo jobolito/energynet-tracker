@@ -1,0 +1,61 @@
+---
+import Base from '../layouts/Base.astro';
+import { STAGES, TYPES, SCALES } from '../lib/taxonomy';
+const relay = import.meta.env.PUBLIC_RELAY_URL ?? '';
+const repo = 'jobolito/energynet-tracker';
+---
+<Base title="Contribute a project" description="Add an EnergyNet or Energy Protocol project to the tracker.">
+  <h1>Contribute a project</h1>
+  <p class="muted" style="max-width:70ch">Submissions are reviewed by an editor before they appear. Only projects that explicitly build on EnergyNet or the Energy Protocol are in scope. Corrections to existing projects are welcome too: mention the project name in the description.</p>
+  <form class="form" id="contrib" data-relay={relay} data-repo={repo}>
+    <label>Project name <input name="title" required maxlength="120" /></label>
+    <label>One-line summary <span class="hint">Max 280 characters. What it is, where, and who.</span><textarea name="summary" required maxlength="280" style="min-height:70px"></textarea></label>
+    <div class="row">
+      <label>Stage <select name="stage" required>{Object.entries(STAGES).map(([k, s]) => <option value={k}>{s.label}</option>)}</select></label>
+      <label>Type <select name="type" required>{Object.entries(TYPES).map(([k, v]) => <option value={k}>{v}</option>)}</select></label>
+    </div>
+    <div class="row">
+      <label>Scale <select name="scale" required>{Object.entries(SCALES).map(([k, v]) => <option value={k}>{v}</option>)}</select></label>
+      <label>Country <span class="hint">Two-letter code, e.g. SE</span><input name="country" required pattern="[A-Za-z]{2}" maxlength="2" /></label>
+    </div>
+    <label>Location(s) <span class="hint">One per line: place name, latitude, longitude. Leave blank for papers/standards; they are pinned at the organisations.</span><textarea name="locations" placeholder="Brunnshög, Lund, 55.7187, 13.2338"></textarea></label>
+    <label>Organisations and roles <span class="hint">One per line: organisation name, role, website</span><textarea name="parties" required placeholder="LKF, Owner, https://www.lkf.se"></textarea></label>
+    <label>Links <span class="hint">One per line: label, URL. At least one public source.</span><textarea name="links" required placeholder="Press release, https://..."></textarea></label>
+    <label>Description <span class="hint">A few paragraphs in plain language. Markdown is fine.</span><textarea name="body" required style="min-height:160px"></textarea></label>
+    <div class="row">
+      <label>Started <span class="hint">Year or YYYY-MM</span><input name="started" placeholder="2025-04" /></label>
+      <label>Tags <span class="hint">Comma separated, lowercase</span><input name="tags" placeholder="energy-protocol, dc, solar" /></label>
+    </div>
+    <label>Your name and email <span class="hint">Only used by the editors to follow up. Not published.</span><input name="contact" required /></label>
+    <label style="display:none">Leave empty <input name="website" tabindex="-1" autocomplete="off" /></label>
+    <div><button class="btn primary" type="submit">Submit for review</button></div>
+    <p class="notice" id="status" hidden></p>
+  </form>
+  <script>
+    const form = document.getElementById('contrib') as HTMLFormElement;
+    const status = document.getElementById('status')!;
+    const say = (t: string, html = false) => { status.hidden = false; if (html) status.innerHTML = t; else status.textContent = t; };
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(form).entries()) as Record<string, string>;
+      if (data.website) return; // honeypot
+      const relay = form.dataset.relay!;
+      if (relay) {
+        say('Submitting…');
+        try {
+          const r = await fetch(relay, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+          const j = await r.json();
+          if (!r.ok) throw new Error(j.error ?? r.statusText);
+          say(`Thanks. Your submission is now <a href="${j.url}" rel="noopener">pull request #${j.number}</a>, waiting for an editor.`, true);
+          form.reset();
+        } catch (err) { say('Submission failed: ' + (err as Error).message + '. You can also open an issue on GitHub.'); }
+      } else {
+        // No relay configured: hand off to a prefilled GitHub issue.
+        const body = Object.entries(data).filter(([k]) => k !== 'website').map(([k, v]) => `### ${k}\n${v || '_none_'}`).join('\n\n');
+        const url = `https://github.com/${form.dataset.repo}/issues/new?labels=project-submission&title=${encodeURIComponent('Project: ' + data.title)}&body=${encodeURIComponent(body)}`;
+        say('Opening a prefilled GitHub issue in a new tab. A GitHub account is needed; the editors will pick it up from there.');
+        window.open(url, '_blank', 'noopener');
+      }
+    });
+  </script>
+</Base>

@@ -1,0 +1,49 @@
+---
+import { STAGES, TYPES, SCALES } from '../lib/taxonomy';
+import type { ProjectDTO } from '../lib/data';
+const { projects } = Astro.props as { projects: ProjectDTO[] };
+const tags = [...new Set(projects.flatMap((p) => p.tags))].sort();
+const countries = [...new Set(projects.map((p) => p.country))].sort();
+const rn = new Intl.DisplayNames(['en'], { type: 'region' });
+---
+<form class="filters" id="filters" role="search" aria-label="Filter projects">
+  <input type="search" name="q" placeholder="Search projects, places, organisations" />
+  <select name="stage" aria-label="Stage"><option value="">All stages</option>{Object.entries(STAGES).map(([k, s]) => <option value={k}>{s.label}</option>)}</select>
+  <select name="type" aria-label="Type"><option value="">All types</option>{Object.entries(TYPES).map(([k, v]) => <option value={k}>{v}</option>)}</select>
+  <select name="scale" aria-label="Scale"><option value="">All scales</option>{Object.entries(SCALES).map(([k, v]) => <option value={k}>{v}</option>)}</select>
+  <select name="country" aria-label="Country"><option value="">All countries</option>{countries.map((c) => <option value={c}>{rn.of(c)}</option>)}</select>
+  <select name="tag" aria-label="Tag"><option value="">All tags</option>{tags.map((t) => <option value={t}>#{t}</option>)}</select>
+  <button type="button" class="btn small" id="clear">Clear</button>
+  <span class="count" id="count"></span>
+</form>
+<script>
+  const form = document.getElementById('filters') as HTMLFormElement;
+  const count = document.getElementById('count')!;
+  const cards = [...document.querySelectorAll<HTMLElement>('.project-card')];
+  const params = new URLSearchParams(location.search);
+  for (const el of form.elements) { const i = el as HTMLInputElement; if (i.name && params.get(i.name)) i.value = params.get(i.name)!; }
+
+  function current() {
+    const f: Record<string, string> = {};
+    for (const el of form.elements) { const i = el as HTMLInputElement; if (i.name && i.value) f[i.name] = i.value; }
+    return f;
+  }
+  function applyList(f: Record<string, string>) {
+    let n = 0;
+    for (const c of cards) {
+      const ok = (!f.stage || c.dataset.stage === f.stage) && (!f.type || c.dataset.type === f.type) && (!f.scale || c.dataset.scale === f.scale)
+        && (!f.country || c.dataset.country === f.country) && (!f.tag || c.dataset.tags!.split(' ').includes(f.tag)) && (!f.q || c.dataset.text!.includes(f.q.toLowerCase()));
+      c.hidden = !ok; if (ok) n++;
+    }
+    count.textContent = `${n} of ${cards.length} projects`;
+  }
+  function run(dispatch = true) {
+    const f = current();
+    applyList(f);
+    if (dispatch) document.dispatchEvent(new CustomEvent('en:filter', { detail: f }));
+  }
+  form.addEventListener('input', () => run());
+  form.addEventListener('submit', (e) => { e.preventDefault(); run(); });
+  document.getElementById('clear')!.addEventListener('click', () => { form.reset(); run(); });
+  run(false);
+</script>

@@ -1,0 +1,11 @@
+name = "energynet-tracker-relay"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+REPO = "jobolito/energynet-tracker"
+ALLOWED_ORIGIN = "https://energynet-tracker.org"
+# Secrets (set with `wrangler secret put <NAME>`):
+#   GITHUB_TOKEN        fine-grained PAT with Contents + Pull requests write on the repo
+#   OAUTH_CLIENT_ID     GitHub OAuth app for Decap CMS login
+#   OAUTH_CLIENT_SECRET

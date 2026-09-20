@@ -1,0 +1,42 @@
+---
+import Base from '../layouts/Base.astro';
+import { STAGES, TYPES, SCALES } from '../lib/taxonomy';
+const site = Astro.site!.toString().replace(/\/$/, '');
+---
+<Base title="About" description="What EnergyNet Tracker is, what it includes, and how to use its data.">
+  <div class="prose">
+    <h1>About</h1>
+    <p>EnergyNet Tracker is a public registry and map of projects in the <strong>EnergyNet / Energy Protocol</strong> lineage: the internet-style approach to distributing energy, where switches and routers move packets of energy between producers, storage and consumers under an open protocol.</p>
+    <p>It is a neutral community project aligned with the EnergyNet engineering taskforce. It is not owned by any vendor. The data is open and the code is on <a href="https://github.com/jobolito/energynet-tracker">GitHub</a>.</p>
+
+    <h2>What is included</h2>
+    <p>Scope is deliberately strict. A project belongs here if it explicitly builds on, implements, extends or studies EnergyNet or the Energy Protocol (EP). Generic smart-grid, energy-community or peer-to-peer trading projects without that lineage are out of scope. If in doubt, <a href="/contribute">submit it</a> and the editors will decide.</p>
+
+    <h2>How projects are classified</h2>
+    <p><strong>Stage</strong> is the pin colour on the map: {Object.values(STAGES).map((s, i) => <>{i > 0 && ', '}<span style={`color:${s.color};font-weight:600`}>{s.label}</span></>)}.</p>
+    <p><strong>Type</strong>: {Object.values(TYPES).join(', ')}. Papers, standards and policy are "theory" work with no physical site, so they are pinned at the lead organisation with a hollow marker.</p>
+    <p><strong>Scale</strong>: {Object.values(SCALES).join(', ')}.</p>
+    <p>A project can have several locations. A collaboration between a city and a university gets one pin at each.</p>
+
+    <h2>Editorial process</h2>
+    <p>Anyone can submit a project. Submissions become a pull request in the repository, an editor checks the facts and the scope, and merging publishes the entry. Entries carry an <em>unverified</em> badge until an editor confirms the facts with a primary source.</p>
+
+    <h2 id="embed">Embed the map</h2>
+    <p>Paste this on your own site. Add <code>?stage=pilot</code>, <code>?country=SE</code>, <code>?tag=dc</code> or <code>?focus=&lt;project-id&gt;</code> to the URL to pre-filter.</p>
+    <pre>{`<iframe src="${site}/embed" width="100%" height="480" style="border:1px solid #ddd;border-radius:8px" loading="lazy" title="EnergyNet Tracker map"></iframe>`}</pre>
+    <p>Filtered views of the main map are also linkable: the filters and the map viewport are stored in the URL, so copy the address bar to share exactly what you see.</p>
+
+    <h2 id="data">Use the data</h2>
+    <ul>
+      <li><a href="/data/projects.json">projects.json</a>, all projects with locations, parties and links</li>
+      <li><a href="/data/projects.geojson">projects.geojson</a>, one feature per location, ready for QGIS or any map</li>
+      <li><a href="/data/projects.csv">projects.csv</a>, one row per project</li>
+      <li><a href="/data/organisations.json">organisations.json</a></li>
+      <li><a href="/news.xml">news.xml</a>, RSS of the curated newsfeed</li>
+    </ul>
+    <p>Data is licensed <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. Please credit "EnergyNet Tracker" with a link. Each project page has a "Cite this project" box.</p>
+
+    <h2>Contact</h2>
+    <p>Open an issue on GitHub, or use the <a href="/contribute">contribute</a> form for corrections.</p>
+  </div>
+</Base>

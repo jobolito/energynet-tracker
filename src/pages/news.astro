@@ -1,0 +1,19 @@
+---
+import Base from '../layouts/Base.astro';
+import { getCollection, render } from 'astro:content';
+const items = (await getCollection('news')).sort((a, b) => +b.data.date - +a.data.date);
+const rendered = await Promise.all(items.map(async (n) => ({ n, Content: (await render(n)).Content })));
+const projects = await getCollection('projects');
+const title = (id: string) => projects.find((p) => p.id === id)?.data.title ?? id;
+---
+<Base title="News" description="Curated links about EnergyNet and the Energy Protocol, with short editor notes.">
+  <h1>News</h1>
+  <p class="muted">Curated links with a short note on why each matters. No original reporting. <a href="/news.xml">RSS</a></p>
+  <ul class="newslist">
+    {rendered.map(({ n, Content }) => <li>
+      <a href={n.data.url} rel="noopener"><strong>{n.data.title}</strong></a>
+      <div class="src">{n.data.source} · {n.data.date.toISOString().slice(0, 10)}{n.data.projects.length > 0 && <> · {n.data.projects.map((p) => <a href={`/projects/${p.id}`}>{title(p.id)}</a>)}</>}</div>
+      <div class="note"><Content /></div>
+    </li>)}
+  </ul>
+</Base>

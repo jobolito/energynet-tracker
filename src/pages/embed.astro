@@ -1,0 +1,10 @@
+---
+import Base from '../layouts/Base.astro';
+import Map from '../components/Map.astro';
+import { loadProjects } from '../lib/data';
+const projects = await loadProjects();
+---
+<Base title="Map" bare={true}>
+  <Map projects={projects} embed={true} />
+  <a href="/" target="_blank" rel="noopener" style="position:absolute;top:10px;right:10px;z-index:500;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.25rem .5rem;font-size:.78rem">EnergyNet Tracker ↗</a>
+</Base>
