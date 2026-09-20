@@ -29,10 +29,11 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 1.5rem 0; }
 
 .wrap { max-width: 1100px; margin: 0 auto; padding: 0 16px; }
 .site-header { border-bottom: 1px solid var(--line); background: var(--surface); position: sticky; top: 0; z-index: 20; }
-.site-header .wrap { display: flex; align-items: center; gap: 1.25rem; height: 56px; }
-.brand { font-weight: 700; color: var(--text); display: flex; align-items: center; gap: .5rem; }
+.site-header .wrap { display: flex; align-items: center; gap: 1.25rem; height: 56px; flex-wrap: nowrap; }
+.brand { font-weight: 700; color: var(--text); display: flex; align-items: center; gap: .5rem; white-space: nowrap; flex-shrink: 0; }
 .brand svg { width: 22px; height: 22px; }
-.nav { display: flex; gap: 1rem; margin-left: auto; font-size: .95rem; }
+.nav { display: flex; gap: 1rem; margin-left: auto; font-size: .95rem; overflow-x: auto; white-space: nowrap; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.nav::-webkit-scrollbar { display: none; }
 .nav a { color: var(--muted); }
 .nav a[aria-current="page"], .nav a:hover { color: var(--text); text-decoration: none; }
 .site-footer { border-top: 1px solid var(--line); margin-top: 3rem; padding: 1.5rem 0 2.5rem; color: var(--muted); font-size: .875rem; }

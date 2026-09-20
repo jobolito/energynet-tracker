@@ -24,7 +24,7 @@ const el = (type: string, props: Record<string, any> = {}, ...children: unknown[
   return { type, props: { ...props, children: kids.length === 1 ? kids[0] : kids } };
 };
 
-export async function renderOg(p: ProjectDTO | null): Promise<Uint8Array> {
+export async function renderOg(p: ProjectDTO | null): Promise<Uint8Array<ArrayBuffer>> {
   const W = 1200, H = 630;
   const title = p?.title ?? 'EnergyNet Tracker';
   const sub = p?.summary ?? 'Projects building on EnergyNet and the Energy Protocol, from theory to deployment.';
@@ -49,7 +49,7 @@ export async function renderOg(p: ProjectDTO | null): Promise<Uint8Array> {
     ),
   );
   const svg = await satori(tree as any, { width: W, height: H, fonts: await loadFonts() });
-  return new Resvg(svg, { fitTo: { mode: 'width', value: W } }).render().asPng();
+  return new Resvg(svg, { fitTo: { mode: 'width', value: W } }).render().asPng() as Uint8Array<ArrayBuffer>;
 }
 
 // Very coarse world outline (equirectangular, 560x280) so the thumbnail reads as a map.
