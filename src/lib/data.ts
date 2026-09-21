@@ -1,5 +1,5 @@
 import { getCollection, getEntry, type CollectionEntry } from 'astro:content';
-import { STAGES, TYPES, SCALES, THEORY_TYPES } from './taxonomy';
+import { STAGES, TYPES, SCALES, THEORY_TYPES, KINDS, kindOf } from './taxonomy';
 
 export type Project = CollectionEntry<'projects'>;
 export type Organisation = CollectionEntry<'organisations'>;
@@ -10,10 +10,11 @@ export interface ProjectDTO {
   url: string;
   title: string;
   summary: string;
-  stage: string; stageLabel: string; stageColor: string;
+  stage: string; stageLabel: string; stageColor: string; stageOrder: number;
   type: string; typeLabel: string;
   scale: string; scaleLabel: string;
   theory: boolean;
+  kind: string; kindLabel: string; kindColor: string;
   tags: string[];
   country: string;
   locations: { name: string; lat: number; lng: number; kind: 'site' | 'hq' }[];
@@ -49,10 +50,11 @@ export async function loadProjects(): Promise<ProjectDTO[]> {
         url: `/projects/${p.id}`,
         title: d.title,
         summary: d.summary,
-        stage: d.stage, stageLabel: STAGES[d.stage].label, stageColor: STAGES[d.stage].color,
+        stage: d.stage, stageLabel: STAGES[d.stage].label, stageColor: STAGES[d.stage].color, stageOrder: STAGES[d.stage].order,
         type: d.type, typeLabel: TYPES[d.type],
         scale: d.scale, scaleLabel: SCALES[d.scale],
         theory,
+        kind: kindOf(d.type, d.stage), kindLabel: KINDS[kindOf(d.type, d.stage)].label, kindColor: KINDS[kindOf(d.type, d.stage)].color,
         tags: d.tags,
         country: d.country,
         locations,

@@ -1,6 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
-import { STAGES, TYPES, SCALES } from '../lib/taxonomy';
+import { STAGES, TYPES, SCALES, KINDS } from '../lib/taxonomy';
 const site = Astro.site!.toString().replace(/\/$/, '');
 ---
 <Base title="About" description="What EnergyNet Tracker is, what it includes, and how to use its data.">
@@ -13,8 +13,9 @@ const site = Astro.site!.toString().replace(/\/$/, '');
     <p>Scope is deliberately strict. A project belongs here if it explicitly builds on, implements, extends or studies EnergyNet or the Energy Protocol (EP). Generic smart-grid, energy-community or peer-to-peer trading projects without that lineage are out of scope. If in doubt, <a href="/contribute">submit it</a> and the editors will decide.</p>
 
     <h2>How projects are classified</h2>
-    <p><strong>Stage</strong> is the pin colour on the map: {Object.values(STAGES).map((s, i) => <>{i > 0 && ', '}<span style={`color:${s.color};font-weight:600`}>{s.label}</span></>)}.</p>
-    <p><strong>Type</strong>: {Object.values(TYPES).join(', ')}. Papers, standards and policy are "theory" work with no physical site, so they are pinned at the lead organisation with a hollow marker.</p>
+    <p><strong>Pin colour</strong> says what kind of work it is: {Object.values(KINDS).map((k, i) => <>{i > 0 && ', '}<span style={`color:${k.color};font-weight:600`}>{k.label}</span></>)}. Built environment means a deployment past the concept stage; prestudies and concepts are deployments still on paper.</p>
+    <p><strong>Stage</strong>: {Object.values(STAGES).map((s) => s.label).join(', ')}. Shown on cards and project pages.</p>
+    <p><strong>Type</strong>: {Object.values(TYPES).join(', ')}. Papers, standards and policy are "theory" work with no physical site, so they are pinned at the lead organisation.</p>
     <p><strong>Scale</strong>: {Object.values(SCALES).join(', ')}.</p>
     <p>A project can have several locations. A collaboration between a city and a university gets one pin at each.</p>
 

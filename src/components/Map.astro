@@ -8,19 +8,18 @@
  * mode "mini":  small static map on project / organisation pages.
  */
 import type { ProjectDTO } from '../lib/data';
-import { STAGES } from '../lib/taxonomy';
+import { KINDS } from '../lib/taxonomy';
 interface Props { projects: ProjectDTO[]; mode?: 'app' | 'embed' | 'mini' }
 const { projects, mode = 'mini' } = Astro.props;
 const pins = projects.flatMap((p) =>
-  p.locations.map((l) => ({ id: p.id, confidential: p.confidential, title: p.title, url: p.url, summary: p.summary, stage: p.stage, color: p.stageColor, type: p.type, scale: p.scale, tags: p.tags, country: p.country, theory: p.theory, name: l.name, lat: l.lat, lng: l.lng, kind: l.kind, text: `${p.title} ${p.summary} ${l.name} ${p.parties.map((x) => x.name).join(' ')}`.toLowerCase() })),
+  p.locations.map((l) => ({ id: p.id, title: p.title, url: p.url, summary: p.summary, stage: p.stage, stageOrder: p.stageOrder, color: p.kindColor, type: p.type, scale: p.scale, tags: p.tags, country: p.country, name: l.name, lat: l.lat, lng: l.lng, text: `${p.title} ${p.summary} ${l.name} ${p.parties.map((x) => x.name).join(' ')}`.toLowerCase() })),
 );
 ---
 <div class={`map-shell mode-${mode}`}>
   <div class="map" id="map" data-mode={mode}></div>
   {mode !== 'mini' && (
     <div class="legend" aria-label="Legend">
-      {Object.entries(STAGES).map(([, s]) => <span><i style={`background:${s.color}`}></i>{s.label}</span>)}
-      <span><i class="hollow"></i>Theory, pinned at organisation</span>
+      {Object.entries(KINDS).map(([, k]) => <span><i style={`background:${k.color}`}></i>{k.label}</span>)}
     </div>
   )}
   {mode === 'embed' && <a class="embed-link" href="/" target="_blank" rel="noopener">EnergyNet Tracker ↗</a>}
@@ -30,7 +29,11 @@ const pins = projects.flatMap((p) =>
 <script>
   import 'maplibre-gl/dist/maplibre-gl.css';
   import * as maplibregl from 'maplibre-gl';
-  type Pin = { id: string; confidential: boolean; title: string; url: string; summary: string; stage: string; color: string; type: string; scale: string; tags: string[]; country: string; theory: boolean; name: string; lat: number; lng: number; kind: string; text: string };
+  type Pin = { id: string; title: string; url: string; summary: string; stage: string; stageOrder: number; color: string; type: string; scale: string; tags: string[]; country: string; name: string; lat: number; lng: number; text: string };
+  /** Pins that share a coordinate are drawn as one marker with a count badge. */
+  type Group = { key: string; lng: number; lat: number; pins: Pin[]; el: HTMLElement; m: maplibregl.Marker; shown: Pin[] };
+  const CHIP_MINZOOM = 4.5;
+  const ACCENT = '#22e06a', DEEP = '#0aa863', INK = '#101418';
   type Filters = Record<string, string>;
   const FILTER_KEYS = ['stage', 'type', 'scale', 'tag', 'q', 'country'];
 
@@ -51,24 +54,88 @@ const pins = projects.flatMap((p) =>
   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), mode === 'mini' ? 'top-left' : 'bottom-right');
 
   const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-  const markers: { pin: Pin; m: maplibregl.Marker; el: HTMLElement }[] = [];
-  for (const pin of pins) {
-    const hollow = pin.theory || pin.kind === 'hq';
-    const d = document.createElement('div');
-    d.className = 'pin' + (hollow ? ' hollow' : '') + (pin.confidential ? ' soft' : '');
-    d.style.background = pin.color; d.style.setProperty('--pin', pin.color);
-    d.title = pin.title; d.setAttribute('role', 'button'); d.tabIndex = 0;
-    const m = new maplibregl.Marker({ element: d }).setLngLat([pin.lng, pin.lat]).addTo(map);
-    if (mode === 'app') {
-      const open = () => { track('pin_open', { project: pin.id, embed: false }); document.dispatchEvent(new CustomEvent('en:open', { detail: { id: pin.id } })); };
+  const cityOf = (name: string) => name.split(',').slice(-1)[0].trim();
+  /** Most advanced project first: it sets the group's colour and wins label collisions. */
+  const byStage = (a: Pin, b: Pin) => b.stageOrder - a.stageOrder;
+  const groups: Group[] = [];
+  {
+    const byKey = new Map<string, Pin[]>();
+    for (const pin of pins) { const k = `${pin.lng.toFixed(4)},${pin.lat.toFixed(4)}`; (byKey.get(k) ?? byKey.set(k, []).get(k)!).push(pin); }
+    for (const [key, list] of byKey) {
+      list.sort(byStage);
+      const d = document.createElement('div');
+      d.className = 'pin'; d.style.background = list[0].color; d.title = list[0].title; d.setAttribute('role', 'button'); d.tabIndex = 0;
+      const m = new maplibregl.Marker({ element: d }).setLngLat([list[0].lng, list[0].lat]).addTo(map);
+      const g: Group = { key, lng: list[0].lng, lat: list[0].lat, pins: list, el: d, m, shown: list };
+      const open = () => {
+        if (g.shown.length === 1 && mode === 'app') {
+          track('pin_open', { project: g.shown[0].id, embed: false });
+          document.dispatchEvent(new CustomEvent('en:open', { detail: { id: g.shown[0].id } }));
+          return;
+        }
+        // Several projects here, or a mode without the drawer: list them in a popup.
+        const target = mode === 'embed' ? ' target="_blank" rel="noopener"' : '';
+        const rows = g.shown.map((p) => `<li><a href="${p.url}"${target} data-id="${p.id}"><i style="background:${p.color}"></i>${esc(p.title)}</a></li>`).join('');
+        const html = g.shown.length === 1
+          ? `<h4><a href="${g.shown[0].url}"${target}>${esc(g.shown[0].title)}</a></h4><p>${esc(g.shown[0].summary)}</p><p class="muted">${esc(g.shown[0].name)}</p>`
+          : `<h4>${esc(cityOf(g.shown[0].name))} · ${g.shown.length} projects</h4><ul class="pins">${rows}</ul>`;
+        const popup = new maplibregl.Popup({ offset: 14, closeButton: false, maxWidth: '280px' }).setLngLat([g.lng, g.lat]).setHTML(html).addTo(map);
+        track('pin_open', { project: g.shown.map((p) => p.id).join(','), embed: mode === 'embed' });
+        if (mode === 'app') popup.getElement().querySelectorAll<HTMLAnchorElement>('a[data-id]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); popup.remove(); document.dispatchEvent(new CustomEvent('en:open', { detail: { id: a.dataset.id } })); }));
+      };
       d.addEventListener('click', (e) => { e.stopPropagation(); open(); });
       d.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
-    } else {
-      const target = mode === 'embed' ? ' target="_blank" rel="noopener"' : '';
-      m.setPopup(new maplibregl.Popup({ offset: 12, closeButton: false }).setHTML(`<h4><a href="${pin.url}"${target}>${esc(pin.title)}</a></h4><p>${esc(pin.summary)}</p><p class="muted">${esc(pin.name)}${hollow ? ' · theory work, pinned at organisation' : ''}</p>`));
-      m.getPopup().on('open', () => track('pin_open', { project: pin.id, embed: mode === 'embed' }));
+      groups.push(g);
     }
-    markers.push({ pin, m, el: d });
+  }
+  /** Paint a group's marker from the pins that currently pass the filters. */
+  function paintGroup(g: Group) {
+    const n = g.shown.length;
+    g.el.style.display = n ? '' : 'none';
+    if (!n) return;
+    const top = g.shown[0];
+    g.el.style.background = top.color;
+    g.el.classList.toggle('multi', n > 1);
+    if (n > 1) g.el.dataset.n = String(n); else delete g.el.dataset.n;
+    g.el.title = n > 1 ? `${cityOf(top.name)} · ${n} projects` : top.title;
+  }
+  function labelData(): GeoJSON.FeatureCollection {
+    return { type: 'FeatureCollection', features: groups.filter((g) => g.shown.length).map((g) => {
+      const top = g.shown[0];
+      return { type: 'Feature', geometry: { type: 'Point', coordinates: [g.lng, g.lat] }, properties: { title: g.shown.length > 1 ? `${cityOf(top.name)} · ${g.shown.length} projects` : top.title, color: top.color, sort: 10 - top.stageOrder, dot: '● ' } };
+    }) };
+  }
+  /** Nine-slice pill for the chip labels. Drawn at 1x with non-empty stretch zones: MapLibre 4.7 drops the icon otherwise. */
+  function addPill() {
+    const h = 30, w = 48, r = 12, s = 2;
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const g = cv.getContext('2d')!;
+    g.beginPath(); g.roundRect(s / 2, s / 2, w - s, h - s, r); g.fillStyle = '#fff'; g.fill(); g.lineWidth = s; g.strokeStyle = 'rgba(16,20,24,.85)'; g.stroke();
+    const d = g.getImageData(0, 0, w, h);
+    map.addImage('pill', { width: w, height: h, data: new Uint8Array(d.data) }, { stretchX: [[r + 2, w - r - 2]], stretchY: [[r, h - r]], content: [r - 4, 4, w - r + 4, h - 4] });
+  }
+  async function addLayers() {
+    const firstSymbol = map.getStyle().layers.find((l) => l.type === 'symbol')?.id;
+    // Region and city tint, under the basemap's labels.
+    const [regions, cities] = await Promise.all([fetch('/data/regions.geojson').then((r) => r.json()), fetch('/data/cities.geojson').then((r) => r.json())]).catch(() => [null, null]);
+    if (regions) {
+      map.addSource('regions', { type: 'geojson', data: regions });
+      map.addLayer({ id: 'regions-fill', type: 'fill', source: 'regions', paint: { 'fill-color': ACCENT, 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 3, 0.06, 7, 0.04, 10, 0.02] } }, firstSymbol);
+      map.addLayer({ id: 'regions-line', type: 'line', source: 'regions', paint: { 'line-color': DEEP, 'line-width': 0.8, 'line-opacity': 0.4 } }, firstSymbol);
+    }
+    if (cities) {
+      map.addSource('cities', { type: 'geojson', data: cities });
+      map.addLayer({ id: 'cities-fill', type: 'fill', source: 'cities', paint: { 'fill-color': ACCENT, 'fill-opacity': 0.22 } }, firstSymbol);
+    }
+    // Chip labels as a symbol layer: collision-aware, hidden below CHIP_MINZOOM.
+    addPill();
+    map.addSource('labels', { type: 'geojson', data: labelData() });
+    map.addLayer({ id: 'labels', type: 'symbol', source: 'labels', minzoom: CHIP_MINZOOM, layout: {
+      'text-field': ['format', ['get', 'dot'], { 'text-color': ['get', 'color'], 'font-scale': 0.9 }, ['get', 'title'], {}],
+      'text-font': ['Noto Sans Bold'], 'text-size': 12, 'text-justify': 'left', 'text-max-width': 14, 'symbol-sort-key': ['get', 'sort'],
+      'text-variable-anchor': ['left', 'right', 'top', 'bottom'], 'text-radial-offset': 1.15, 'text-padding': 4,
+      'icon-image': 'pill', 'icon-text-fit': 'both', 'icon-text-fit-padding': [4, 8, 4, 7], 'icon-optional': false, 'text-optional': false,
+    }, paint: { 'text-color': INK } });
   }
 
   function matches(pin: Pin, f: Filters) {
@@ -100,7 +167,8 @@ const pins = projects.flatMap((p) =>
   /** Apply filters to pins; optionally refit. Then announce what is visible in the viewport. */
   function apply(fit: boolean) {
     const shown: Pin[] = [];
-    for (const { pin, el } of markers) { const ok = matches(pin, filters); el.style.display = ok ? '' : 'none'; if (ok) shown.push(pin); }
+    for (const g of groups) { g.shown = g.pins.filter((p) => matches(p, filters)); paintGroup(g); shown.push(...g.shown); }
+    (map.getSource('labels') as maplibregl.GeoJSONSource | undefined)?.setData(labelData());
     if (fit) fitTo(shown);
     announce();
     return shown.length;
@@ -109,7 +177,7 @@ const pins = projects.flatMap((p) =>
     if (mode !== 'app') return;
     const b = map.getBounds();
     const ids = new Set<string>();
-    for (const { pin } of markers) if (matches(pin, filters) && b.contains([pin.lng, pin.lat])) ids.add(pin.id);
+    for (const g of groups) if (b.contains([g.lng, g.lat])) for (const p of g.shown) ids.add(p.id);
     document.dispatchEvent(new CustomEvent('en:visible', { detail: { ids: [...ids], filters } }));
   }
   function writeUrl() {
@@ -123,6 +191,7 @@ const pins = projects.flatMap((p) =>
   }
 
   map.on('load', () => {
+    addLayers(); // not awaited: the view should settle before the tint files arrive
     const hash = location.hash.slice(1).split(',').map(Number);
     const hasHash = mode === 'app' && hash.length === 3 && hash.every((n) => !Number.isNaN(n));
     const focus = params.get('focus') || params.get('p');

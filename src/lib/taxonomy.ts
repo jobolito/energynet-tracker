@@ -38,8 +38,24 @@ export const ORG_KINDS = {
   other: 'Other',
 } as const;
 
-/** Types that are "theory" work: pinned at the lead org HQ with a hollow marker. */
+/** Types that are "theory" work: pinned at the lead org HQ when no site is given. */
 export const THEORY_TYPES = new Set(['paper', 'standard', 'policy']);
+
+/** Pin colour on the map says what kind of work a project is, not how far along it is. */
+export const KINDS = {
+  built: { label: 'Built environment', color: '#1d6fe0' },
+  concept: { label: 'Prestudy / concept', color: '#8ec5ff' },
+  research: { label: 'Academic / research', color: '#f5c400' },
+  software: { label: 'Software / hardware', color: '#ef5da8' },
+  discontinued: { label: 'Discontinued', color: '#9aa5b1' },
+} as const;
+export type Kind = keyof typeof KINDS;
+export function kindOf(type: string, stage: string): Kind {
+  if (stage === 'discontinued') return 'discontinued';
+  if (type === 'software' || type === 'hardware') return 'software';
+  if (THEORY_TYPES.has(type) || stage === 'research') return 'research';
+  return stage === 'concept' ? 'concept' : 'built';
+}
 
 export type Stage = keyof typeof STAGES;
 export type ProjectType = keyof typeof TYPES;

@@ -28,11 +28,11 @@ export async function renderOg(p: ProjectDTO | null): Promise<Uint8Array<ArrayBu
   const W = 1200, H = 630;
   const title = p?.title ?? 'EnergyNet Tracker';
   const sub = p?.summary ?? 'Projects building on EnergyNet and the Energy Protocol, from theory to deployment.';
-  const color = p?.stageColor ?? '#22e06a';
+  const color = p?.kindColor ?? '#22e06a';
   const dots = (p?.locations ?? []).map((l) => proj(l.lat, l.lng, 560, 280));
   const map = el('div', { style: { position: 'absolute', right: 40, top: 40, width: 560, height: 280, borderRadius: 16, background: '#e9efe9', border: '1px solid #d6dfd6', display: 'flex', overflow: 'hidden' } },
     el('img', { src: 'data:image/svg+xml;utf8,' + encodeURIComponent(WORLD_SVG), width: 560, height: 280, style: { position: 'absolute', left: 0, top: 0, opacity: 0.9 } }),
-    ...dots.map((d) => el('div', { style: { position: 'absolute', left: d.x - 9, top: d.y - 9, width: 18, height: 18, borderRadius: 9, background: p?.theory ? 'transparent' : color, border: `4px solid ${p?.theory ? color : '#fff'}`, boxShadow: '0 1px 4px rgba(0,0,0,.35)' } })),
+    ...dots.map((d) => el('div', { style: { position: 'absolute', left: d.x - 9, top: d.y - 9, width: 18, height: 18, borderRadius: 9, background: color, border: '4px solid #fff', boxShadow: '0 1px 4px rgba(0,0,0,.35)' } })),
   );
   const tree = el('div', { style: { width: W, height: H, display: 'flex', flexDirection: 'column', background: '#fbfbf9', fontFamily: 'Inter', color: '#101418', padding: 56, position: 'relative' } },
     el('div', { style: { display: 'flex', alignItems: 'center', gap: 12, fontSize: 26, fontWeight: 700, color: '#086b41' } }, el('img', { src: 'data:image/svg+xml;utf8,' + encodeURIComponent(LOGO_SVG), width: 34, height: 34 }), 'EnergyNet Tracker'),

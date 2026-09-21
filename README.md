@@ -19,7 +19,9 @@ Static [Astro](https://astro.build) site on GitHub Pages, MapLibre GL 4 for the 
 | `src/content/organisations/` | organisation, referenced from projects by slug |
 | `src/content/news/` | curated news item |
 
-The schema lives in `src/content.config.ts`; the build fails on invalid data. Taxonomy (stages, types, scales) is in `src/lib/taxonomy.ts`.
+The schema lives in `src/content.config.ts`; the build fails on invalid data. Taxonomy (stages, types, scales, and the pin colour "kinds") is in `src/lib/taxonomy.ts`.
+
+The map tints countries, US states and cities that hold a project. Countries and states are derived at build time from the pin coordinates (Natural Earth via `world-atlas` / `us-atlas`). City outlines come from OpenStreetMap and live in `src/data/cities/`, one file per city; when a project lands in a new city, run `node scripts/fetch-city.mjs "<City, Country>"` once and commit the file. Outlines are matched to projects by city name, so the file's `name` (or an alias) must appear as a comma-separated segment of the project's location name.
 
 Editors can use the CMS at `/admin` (Decap CMS, GitHub login) or edit the files directly. The contribute form and CMS login go through a small Cloudflare Worker in `worker/`; see its README. Without the worker the form falls back to a prefilled GitHub issue.
 
