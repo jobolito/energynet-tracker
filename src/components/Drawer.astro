@@ -32,7 +32,7 @@ const rn = new Intl.DisplayNames(['en'], { type: 'region' });
       <p><strong>{p.summary}</strong></p>
       <Content />
       {p.tags.length > 0 && <p class="chips">{p.tags.map((t) => <a class="tag" href={`/?tag=${t}`}>{t}</a>)}</p>}
-      {p.confidential ? <><h4>Parties</h4><p class="muted">Not disclosed. The parties have asked for the project to be listed by city only.</p></> : p.parties.length > 0 && <><h4>Parties</h4>{p.parties.map((x) => <div class="party"><a href={x.url}>{x.name}</a><span>{x.role}</span></div>)}</>}
+      {p.confidential ? <><h4>Parties</h4><p class="muted">Not disclosed. The parties have asked for the project to be listed by city only.</p></> : p.parties.length > 0 && <><h4>Parties</h4>{p.parties.map((x) => <div class="party">{x.url ? <a href={x.url} rel="noopener">{x.name}</a> : x.name}<span>{x.role}</span></div>)}</>}
       {p.links.length > 0 && <><h4>Sources</h4>{p.links.map((l) => <div class="party"><a href={l.url} rel="noopener">{l.label}</a></div>)}</>}
     </div>
     <div class="ft">

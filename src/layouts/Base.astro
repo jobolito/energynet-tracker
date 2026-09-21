@@ -8,7 +8,7 @@ const site = Astro.site?.toString().replace(/\/$/, '') ?? '';
 const canonical = Astro.props.canonical ?? site + Astro.url.pathname;
 const og = ogImage ?? `${site}/og/default.png`;
 const path = Astro.url.pathname;
-const nav = [['/organisations', 'Organisations'], ['/news', 'News'], ['/about', 'About']];
+const nav = [['/news', 'News'], ['/about', 'About']];
 const current = (href: string) => (href === '/' ? path === '/' : path.startsWith(href));
 ---
 <!doctype html>

@@ -17,7 +17,7 @@ export interface ProjectDTO {
   tags: string[];
   country: string;
   locations: { name: string; lat: number; lng: number; kind: 'site' | 'hq' }[];
-  parties: { id: string; name: string; role: string; url: string }[];
+  parties: { id: string; name: string; role: string; url?: string }[];
   links: { label: string; url: string }[];
   started?: string; ended?: string;
   added: string; updated?: string; verified: boolean;
@@ -34,7 +34,7 @@ export async function loadProjects(): Promise<ProjectDTO[]> {
       const theory = THEORY_TYPES.has(d.type);
       const parties = d.parties.map((pt) => {
         const o = orgById.get(pt.org.id);
-        return { id: pt.org.id, name: o?.data.name ?? pt.org.id, role: pt.role, url: `/organisations/${pt.org.id}` };
+        return { id: pt.org.id, name: o?.data.name ?? pt.org.id, role: pt.role, url: o?.data.website };
       });
       // Theory work with no explicit site gets pinned at each party's HQ.
       let locations = d.locations.map((l) => ({ ...l }));

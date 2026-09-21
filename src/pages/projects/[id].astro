@@ -42,7 +42,7 @@ const embed = `<iframe src="${site}/embed?focus=${p.id}" width="100%" height="40
       <Map projects={[p]} />
       <h3 style="margin-top:1.25rem">Parties</h3>
       {p.confidential ? <p class="muted small">Not disclosed. The parties have asked for the project to be listed by city only.</p> : p.parties.length ? (
-        <ul class="parties">{p.parties.map((x) => <li><a href={x.url}>{x.name}</a><span>{x.role}</span></li>)}</ul>
+        <ul class="parties">{p.parties.map((x) => <li>{x.url ? <a href={x.url} rel="noopener">{x.name}</a> : x.name}<span>{x.role}</span></li>)}</ul>
       ) : <p class="muted small">No parties listed yet.</p>}
       <h3 style="margin-top:1.25rem">Details</h3>
       <dl class="kv">

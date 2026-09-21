@@ -6,7 +6,7 @@ Public map and registry of projects in the EnergyNet / Energy Protocol lineage, 
 - **Project pages** with parties, links, cite box and embed code.
 - **Organisation pages** listing everything an organisation touches.
 - **Newsfeed**: curated links with a one-line editor note. RSS at `/news.xml`.
-- **Open data**: `/data/projects.json`, `.geojson`, `.csv`, `/data/organisations.json`. CC BY 4.0.
+- **Open data**: `/data/projects.json`, `.geojson`, `.csv`. CC BY 4.0.
 - **Contribute**: web form → pull request → editor merges.
 
 ## How it is built
